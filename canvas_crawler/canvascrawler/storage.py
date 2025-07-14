@@ -8,7 +8,11 @@ class StorageManager:
         self.logger   = logger
 
     def write_json(self, record):
-        path = os.path.join(self.base_dir, "json_output", f"{record['type']}_{record['id']}.json")
+        # Use type + id if present, else just type
+        suffix = f"_{record['id']}" if "id" in record else ""
+        filename = f"{record['type']}{suffix}.json"
+        
+        path = os.path.join(self.base_dir, "json_output", filename)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(record, f, indent=2)

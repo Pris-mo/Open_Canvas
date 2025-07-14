@@ -63,7 +63,33 @@ class Canvas:
         else:
             raise Exception(r.status_code,r.text)
         
+    def get_assignments(self, course_id):
+        assignments = f'{self.server_url}/api/v1/courses/{course_id}/assignments?per_page=100'
 
+        r = requests.get(assignments, headers=self.headers())
+
+        raw  = r.json()
+
+        data_set = []
+
+        for assignment in raw:
+
+            data_set.append(assignment)
+        
+        while r.links['current']['url'] != r.links['last']['url']:
+
+            r = requests.get(r.links['next']['url'], headers=self.headers())
+
+            raw = r.json()
+
+            for assignment in raw:
+
+                data_set.append(assignment)
+
+        if r.status_code == 200:
+            return data_set
+        else:
+            raise Exception(r.status_code,r.text)
 
 
     def get_assignment_grades(self, course_id, assignment_id):
@@ -153,9 +179,18 @@ class Canvas:
             return raw
         else:
             raise (r.status_code,r.text)
-        
-    def get_course(self, course_id):
+            
+    def get_announcements(self, course_id):
+        url = f"{self.server_url}/api/v1/courses/{course_id}/discussion_topics?only_announcements=true"
+        r   = requests.get(url, headers=self.headers())
+        r.raise_for_status()
+        return r.json()
+
+    def get_course(self, course_id, syllabus=False):
             assignment_data = f'{self.server_url}/api/v1/courses/{course_id}/'
+
+            if syllabus:
+                assignment_data += '?include[]=syllabus_body'
 
             r = requests.get(assignment_data, headers=self.headers())
 
@@ -177,7 +212,6 @@ class Canvas:
                 return raw
             else:
                 raise Exception(r.status_code,r.text)
-
 
 
     def delete_assignment_override(self, course_id, assignment_id, override_id):

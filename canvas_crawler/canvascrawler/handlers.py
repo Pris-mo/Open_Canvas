@@ -8,7 +8,7 @@ class ContentHandler(ABC):
 
     def run(self, context):
         data   = self.fetch(context)    # 1) API call
-        parsed = self.parse(data)       # 2) normalize/flatten into your JSON schema
+        parsed = self.parse(context, data)       # 2) normalize/flatten into your JSON schema
         self.save(parsed)               # 3) write JSON + download raw files
 
     @abstractmethod
@@ -54,14 +54,63 @@ class AssignmentHandler(ContentHandler):
           # …etc…
         }
 
+class SyllabusHandler(ContentHandler):
+    def fetch(self, context):
+        course_data = self.client.get_course(context["course_id"],True)
+        return course_data
+    def parse(self, context, data):
+        return {
+            "id":    data["id"],
+            "type":  "syllabus",
+            "title": data.get("name"),
+            "data":  data.get("syllabus_body"),        # dump everything for now
+            "depth": context["depth"]
+        }
+    
+class ModulesHandler(ContentHandler):
+    def fetch(self, context):
+        modules = self.client.get_modules(context["course_id"])
+        return modules
+    def parse(self, context, data):
+        return {
+            "type":    "modules",
+            "course":  context["course_id"],
+            "items":   [m["id"] for m in data],
+            "depth":   context["depth"]
+        }
+        
+
+class AnnouncementsHandler(ContentHandler):
+    def fetch(self, context):
+        return self.client.get_announcements(context["course_id"])
+    def parse(self, context, data):
+        return {
+            "type":    "announcements",
+            "course":  context["course_id"],
+            "items":   [a["id"] for a in data],
+            "depth":   context["depth"]
+        }
+    
+class AssignmentsHandler(ContentHandler):
+    def fetch(self, context):
+        return self.client.get_assignments(context["course_id"])
+    def parse(self, context, data):
+        # data is a list of groups, each with an "assignments" list
+        return {
+            "type":     "assignments",
+            "course":   context["course_id"],
+            "assignments":   [a["id"] for a in data],
+            "depth":    context["depth"]
+        }
 
 # And finally the factory:
 class HandlerFactory:
     registry = {
-      "page":       PageHandler,
-      "assignment": AssignmentHandler,
-      "quiz":       QuizHandler,
-      # add your other handlers…
+        "syllabus":          SyllabusHandler,
+        "modules":           ModulesHandler,
+        "announcements":     AnnouncementsHandler,
+        "assignments": AssignmentsHandler,
+        # page, assignment, quiz, etc. can come later
     }
 
     @classmethod

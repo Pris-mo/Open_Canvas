@@ -2,6 +2,8 @@ import argparse
 import logging
 import sys
 from canvascrawler.client import Canvas
+from canvascrawler.storage import StorageManager
+from canvascrawler.crawler import CanvasCrawler
 import os
 
 def parse_args():
@@ -35,16 +37,34 @@ def main():
     logger.info("Starting Canvas Crawler")
     logger.debug(f"Args: {args}")
 
+    
+    if not args.token:
+        logger.error("No API token provided. Use --token or set CANVAS_TOKEN.")
+        sys.exit(1)
+
     # Initialize Canvas API client
     client = Canvas(token=args.token, url="https://learn.canvas.net")
     logger.debug("Canvas client initialized")
 
-    # TODO: instantiate crawler, storage, and kick off crawl
-    # from canvascrawler.crawler import CanvasCrawler
-    # crawler = CanvasCrawler(client, args.course_id, args.output_dir, args.depth_limit, logger)
-    # crawler.run()
+    # Set up file storage
+    storage = StorageManager(args.output_dir, logger)
+    logger.debug(f"Storage initialized at {args.output_dir}")
 
-    logger.info("Finished (stub)")
+    # Create crawler
+    crawler = CanvasCrawler(
+        client=client,
+        course_id=args.course_id,
+        storage=storage,
+        depth_limit=args.depth_limit,
+        logger=logger,
+    )
+
+    # Run the crawler
+    crawler.run()
+
+    logger.info("Finished crawling (seed-only mode)")
+    sys.exit(0)
+
 
 if __name__ == '__main__':
     main()

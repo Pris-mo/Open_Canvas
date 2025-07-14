@@ -9,9 +9,19 @@ class CanvasCrawler:
         self.depth_limit = depth_limit
         self.logger      = logger
 
+
+    def _seed(self):
+         # each context dict carries course_id, item_id, and current depth
+        return [
+#            ("syllabus",          {"course_id": self.course_id, "item_id": None, "depth": 0}),
+            ("modules",           {"course_id": self.course_id, "item_id": None, "depth": 0}),
+#            ("announcements",     {"course_id": self.course_id, "item_id": None, "depth": 0}),
+            ("assignments", {"course_id": self.course_id, "item_id": None, "depth": 0}),
+        ]
+
     def run(self):
         # seed with syllabus, modules, announcements, etc.
-        queue = deque([("syllabus", {"course_id": self.course_id, "item_id": None, "depth": 0})])
+        queue = deque(self._seed())
         seen = set()
 
         while queue:
