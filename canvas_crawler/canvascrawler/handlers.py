@@ -110,7 +110,7 @@ class PageHandler(ContentHandler):
 
     def parse(self, context, data):
         return {
-            "id":       data["id"],
+            "id":       data["page_id"],
             "title":    data["title"],
             "type":     "page",
             "url":      data["html_url"],
@@ -141,6 +141,18 @@ class ModuleHandler(ContentHandler):
         }
         return module_data
 
+class DiscussionHandler(ContentHandler):
+    def fetch(self, context):
+        return self.client.get_discussion_topic(context["course_id"], context["item_id"])
+
+    def parse(self, context, data):
+        return {
+            "id":       data["id"],
+            "title":    data["title"],
+            "type":     "discussion",
+            "url":      data["html_url"],
+            "depth":    context["depth"]
+        }
 
 
 # And finally the factory:

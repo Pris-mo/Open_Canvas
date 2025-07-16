@@ -19,6 +19,10 @@ class CanvasCrawler:
 #            ("assignments", {"course_id": self.course_id, "item_id": None, "depth": 0}),
         ]
 
+
+# No handler for subheader, I want to skip these, i.e these can be ignored
+
+
     def run(self):
         # seed with syllabus, modules, announcements, etc.
         queue = deque(self._seed())
@@ -62,10 +66,19 @@ class CanvasCrawler:
         elif content_type == "module":
             for mi in self.client.get_module_items(cid, context["item_id"]):
                 ct = mi["type"].lower()  # e.g. "page", "assignment", "file"
-                links.append((
-                    ct,
-                    {"course_id": cid, "item_id": mi["id"], "depth": next_depth}
-                ))
+                
+                if ct == "subheader":
+                    continue
+                elif ct == "page":
+                    links.append((
+                        ct,
+                        {"course_id": cid, "item_id": mi["page_url"], "depth": next_depth}
+                    ))
+                else:
+                    links.append((
+                        ct,
+                        {"course_id": cid, "item_id": mi["id"], "depth": next_depth}
+                    ))
 
         # 3) assignments list → each assignment
         elif content_type == "assignments":
