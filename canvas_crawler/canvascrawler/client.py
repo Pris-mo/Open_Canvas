@@ -340,6 +340,15 @@ class Canvas:
         else:
             r.raise_for_status()
 
+
+    def get_discussion_topic(self, course_id, topic_id):
+        url = f"{self.server_url}/api/v1/courses/{course_id}/discussion_topics/{topic_id}"
+        r = requests.get(url, headers=self.headers())
+        if r.status_code == 200:
+            return r.json()
+        else:
+            r.raise_for_status()
+
     def get_wiki_page(self, course_id, page_id):
         url = f"{self.server_url}/api/v1/courses/{course_id}/pages/{page_id}"
         r = requests.get(url, headers=self.headers())
