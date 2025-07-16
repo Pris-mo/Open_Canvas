@@ -16,7 +16,7 @@ class CanvasCrawler:
 #            ("syllabus",          {"course_id": self.course_id, "item_id": None, "depth": 0}),
             ("modules",           {"course_id": self.course_id, "item_id": None, "depth": 0}),
 #            ("announcements",     {"course_id": self.course_id, "item_id": None, "depth": 0}),
-            ("assignments", {"course_id": self.course_id, "item_id": None, "depth": 0}),
+#            ("assignments", {"course_id": self.course_id, "item_id": None, "depth": 0}),
         ]
 
     def run(self):
@@ -46,5 +46,50 @@ class CanvasCrawler:
                 queue.append((link_type, new_context))
 
     def discover_links(self, content_type, context):
-        # TODO: inspect storage or client to find linked Canvas items
-        return []
+        cid        = context["course_id"]
+        next_depth = context["depth"] + 1
+        links      = []
+
+        # 1) modules list → each module
+        if content_type == "modules":
+            for mod in self.client.get_modules(cid):
+                links.append((
+                    "module",
+                    {"course_id": cid, "item_id": mod["id"], "depth": next_depth}
+                ))
+
+        # 2) one module → its items (pages, assignments, files, etc.)
+        elif content_type == "module":
+            for mi in self.client.get_module_items(cid, context["item_id"]):
+                ct = mi["type"].lower()  # e.g. "page", "assignment", "file"
+                links.append((
+                    ct,
+                    {"course_id": cid, "item_id": mi["id"], "depth": next_depth}
+                ))
+
+        # 3) assignments list → each assignment
+        elif content_type == "assignments":
+            for a in self.client.get_assignments(cid):
+                links.append((
+                    "assignment",
+                    {"course_id": cid, "item_id": a["id"], "depth": next_depth}
+                ))
+
+        # 4) pages list → each page
+        elif content_type == "pages":
+            for p in self.client.get_pages(cid):
+                links.append((
+                    "page",
+                    {"course_id": cid, "item_id": p["id"], "depth": next_depth}
+                ))
+
+        # 5) announcements list → each announcement
+        elif content_type == "announcements":
+            for ann in self.client.get_announcements(cid):
+                links.append((
+                    "announcement",
+                    {"course_id": cid, "item_id": ann["id"], "depth": next_depth}
+                ))
+
+        # return all the new work items
+        return links

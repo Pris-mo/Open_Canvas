@@ -102,6 +102,32 @@ class AssignmentsHandler(ContentHandler):
             "assignments":   [a["id"] for a in data],
             "depth":    context["depth"]
         }
+    
+
+
+class ModuleHandler(ContentHandler):
+    def fetch(self, context):
+        # context["item_id"] is a module ID
+
+        module_data = self.client.get_module(context["course_id"], context["item_id"])
+        module_items = self.client.get_module_items(context["course_id"], context["item_id"])
+        module_data["items"] = module_items  
+
+        return module_data
+
+    def parse(self, context, data):
+        # you can dump the module metadata or head it off to storage
+        temp = ''
+        module_data = {
+            "type":   "module",
+            "id":     data["id"],
+            "title":  data["name"],
+            "items":  [i["id"] for i in data["items"]],  # might not exist; you'll get them via client.get_module_items
+            "depth":  context["depth"],
+        }
+        return module_data
+
+
 
 # And finally the factory:
 class HandlerFactory:
@@ -109,7 +135,8 @@ class HandlerFactory:
         "syllabus":          SyllabusHandler,
         "modules":           ModulesHandler,
         "announcements":     AnnouncementsHandler,
-        "assignments": AssignmentsHandler,
+        "assignments":       AssignmentsHandler,
+        "module":            ModuleHandler
         # page, assignment, quiz, etc. can come later
     }
 
