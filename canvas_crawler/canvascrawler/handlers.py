@@ -25,8 +25,6 @@ class ContentHandler(ABC):
         if parsed.get("file_url"):
             self.storage.download_file(parsed["file_url"], parsed["file_path"])
 
-
-# Now define your concrete handlers:
 class PageHandler(ContentHandler):
     def fetch(self, context):
         return self.client.get_wiki_page(context.course_id, context.item_id)
@@ -95,7 +93,6 @@ class AssignmentsHandler(ContentHandler):
     def fetch(self, context):
         return self.client.get_assignments(context["course_id"])
     def parse(self, context, data):
-        # data is a list of groups, each with an "assignments" list
         return {
             "type":     "assignments",
             "course":   context["course_id"],
@@ -119,11 +116,9 @@ class PageHandler(ContentHandler):
 
 class DiscussionHandler(ContentHandler):
     def fetch(self, context):
-        temp = ''
         return self.client.get_discussion_topic(context["course_id"], context["item_id"])
 
     def parse(self, context, data):
-        temp = ''
         return {
             "id":       data["id"],
             "title":    data["title"],
@@ -134,17 +129,13 @@ class DiscussionHandler(ContentHandler):
 
 class ModuleHandler(ContentHandler):
     def fetch(self, context):
-        # context["item_id"] is a module ID
-
         module_data = self.client.get_module(context["course_id"], context["item_id"])
         module_items = self.client.get_module_items(context["course_id"], context["item_id"])
         module_data["items"] = module_items  
-
         return module_data
 
     def parse(self, context, data):
         # you can dump the module metadata or head it off to storage
-        temp = ''
         module_data = {
             "type":   "module",
             "id":     data["id"],
@@ -165,6 +156,7 @@ class HandlerFactory:
         "module":            ModuleHandler,
         "page":              PageHandler,
         "discussion":        DiscussionHandler,
+        "assignment":        AssignmentHandler,
         # page, assignment, quiz, etc. can come later
     }
 
