@@ -117,7 +117,20 @@ class PageHandler(ContentHandler):
             "depth":    context["depth"]
         }
 
+class DiscussionHandler(ContentHandler):
+    def fetch(self, context):
+        temp = ''
+        return self.client.get_discussion_topic(context["course_id"], context["item_id"])
 
+    def parse(self, context, data):
+        temp = ''
+        return {
+            "id":       data["id"],
+            "title":    data["title"],
+            "type":     "discussion",
+            "url":      data["html_url"],
+            "depth":    context["depth"]
+        }
 
 class ModuleHandler(ContentHandler):
     def fetch(self, context):
@@ -141,19 +154,6 @@ class ModuleHandler(ContentHandler):
         }
         return module_data
 
-class DiscussionHandler(ContentHandler):
-    def fetch(self, context):
-        return self.client.get_discussion_topic(context["course_id"], context["item_id"])
-
-    def parse(self, context, data):
-        return {
-            "id":       data["id"],
-            "title":    data["title"],
-            "type":     "discussion",
-            "url":      data["html_url"],
-            "depth":    context["depth"]
-        }
-
 
 # And finally the factory:
 class HandlerFactory:
@@ -164,6 +164,7 @@ class HandlerFactory:
         "assignments":       AssignmentsHandler,
         "module":            ModuleHandler,
         "page":              PageHandler,
+        "discussion":        DiscussionHandler,
         # page, assignment, quiz, etc. can come later
     }
 

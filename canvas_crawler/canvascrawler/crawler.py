@@ -74,6 +74,11 @@ class CanvasCrawler:
                         ct,
                         {"course_id": cid, "item_id": mi["page_url"], "depth": next_depth}
                     ))
+                elif ct == "discussion":
+                    links.append((
+                        ct,
+                        {"course_id": cid, "item_id": mi["content_id"], "depth": next_depth}
+                    ))
                 else:
                     links.append((
                         ct,
