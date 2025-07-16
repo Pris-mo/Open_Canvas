@@ -102,7 +102,21 @@ class AssignmentsHandler(ContentHandler):
             "assignments":   [a["id"] for a in data],
             "depth":    context["depth"]
         }
-    
+
+
+class PageHandler(ContentHandler):
+    def fetch(self, context):
+        return self.client.get_wiki_page(context["course_id"], context["item_id"])
+
+    def parse(self, context, data):
+        return {
+            "id":       data["id"],
+            "title":    data["title"],
+            "type":     "page",
+            "url":      data["html_url"],
+            "depth":    context["depth"]
+        }
+
 
 
 class ModuleHandler(ContentHandler):
@@ -136,7 +150,8 @@ class HandlerFactory:
         "modules":           ModulesHandler,
         "announcements":     AnnouncementsHandler,
         "assignments":       AssignmentsHandler,
-        "module":            ModuleHandler
+        "module":            ModuleHandler,
+        "page":              PageHandler,
         # page, assignment, quiz, etc. can come later
     }
 
