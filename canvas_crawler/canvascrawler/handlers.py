@@ -38,18 +38,21 @@ class PageHandler(ContentHandler):
           # …etc…
         }
 
-
 class AssignmentHandler(ContentHandler):
     def fetch(self, context):
-        return self.client.get_assignment(context.course_id, context.item_id)
+        temp = ''
+        return self.client.get_assignment(context["course_id"], context["item_id"])
 
-    def parse(self, data):
+    def parse(self, context, data):
+        temp = ''
         return {
-          "id":       data["id"],
-          "title":    data["name"],
-          "type":     "assignment",
-          "due_at":   data["due_at"],
-          # …etc…
+            "id":       data["id"],
+            "title":    data["name"],
+            "type":     "assignment",
+            "due_at":   data.get("due_at"),
+            "points_possible": data.get("points_possible"),
+            "depth":    context["depth"],
+            "url":      data["html_url"],
         }
 
 class SyllabusHandler(ContentHandler):
