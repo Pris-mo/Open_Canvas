@@ -7,9 +7,9 @@ class ContentHandler(ABC):
         self.logger  = logger
 
     def run(self, context):
-        data   = self.fetch(context)    # 1) API call
+        data   = self.fetch(context)             # 1) API call
         parsed = self.parse(context, data)       # 2) normalize/flatten into your JSON schema
-        self.save(parsed)               # 3) write JSON + download raw files
+        self.save(parsed)                        # 3) write JSON + download raw files
 
     @abstractmethod
     def fetch(self, context):
@@ -64,7 +64,7 @@ class SyllabusHandler(ContentHandler):
             "id":    data["id"],
             "type":  "syllabus",
             "title": data.get("name"),
-            "data":  data.get("syllabus_body"),        # dump everything for now
+            "data":  data.get("syllabus_body"),    
             "depth": context["depth"]
         }
     
@@ -138,12 +138,11 @@ class ModuleHandler(ContentHandler):
         return module_data
 
     def parse(self, context, data):
-        # you can dump the module metadata or head it off to storage
         module_data = {
             "type":   "module",
             "id":     data["id"],
             "title":  data["name"],
-            "items":  [i["id"] for i in data["items"]],  # might not exist; you'll get them via client.get_module_items
+            "items":  [i["id"] for i in data["items"]], 
             "depth":  context["depth"],
         }
         return module_data
@@ -160,7 +159,7 @@ class HandlerFactory:
         "page":              PageHandler,
         "discussion":        DiscussionHandler,
         "assignment":        AssignmentHandler,
-        # page, assignment, quiz, etc. can come later
+        # files, external links,
     }
 
     @classmethod
