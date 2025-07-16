@@ -25,19 +25,6 @@ class ContentHandler(ABC):
         if parsed.get("file_url"):
             self.storage.download_file(parsed["file_url"], parsed["file_path"])
 
-class PageHandler(ContentHandler):
-    def fetch(self, context):
-        return self.client.get_wiki_page(context.course_id, context.item_id)
-
-    def parse(self, data):
-        return {
-          "id":       data["id"],
-          "title":    data["title"],
-          "type":     "page",
-          "url":      data["html_url"],
-          # …etc…
-        }
-
 class AssignmentHandler(ContentHandler):
     def fetch(self, context):
         temp = ''
@@ -109,13 +96,21 @@ class PageHandler(ContentHandler):
         return self.client.get_wiki_page(context["course_id"], context["item_id"])
 
     def parse(self, context, data):
+        temp = ''
         return {
             "id":       data["page_id"],
             "title":    data["title"],
             "type":     "page",
             "url":      data["html_url"],
-            "depth":    context["depth"]
+            "depth":    context["depth"],
+            "body":     data["body"],
+            "file_path": f"pages/{data['page_id']}.html",
         }
+
+    def save(self, parsed):
+        # Override to handle file downloads if needed
+        self.storage.write_json(parsed)
+        self.storage.write_html(parsed["body"], parsed["file_path"])
 
 class DiscussionHandler(ContentHandler):
     def fetch(self, context):
