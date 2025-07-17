@@ -22,8 +22,8 @@ class ContentHandler(ABC):
     def save(self, parsed):
         # default implementation, or override in subclasses
         self.storage.write_json(parsed)
-        if parsed.get("file_url"):
-            self.storage.download_file(parsed["file_url"], parsed["file_path"])
+        if parsed.get("body"):
+            self.storage.write_html(parsed["body"], parsed["file_path"])
 
 class AssignmentHandler(ContentHandler):
     def fetch(self, context):
@@ -40,7 +40,11 @@ class AssignmentHandler(ContentHandler):
             "points_possible": data.get("points_possible"),
             "depth":    context["depth"],
             "url":      data["html_url"],
+            "body":   data.get("description", ""),
+            "file_path": f"assignments/{data['id']}.html",
         }
+
+
 
 class SyllabusHandler(ContentHandler):
     def fetch(self, context):
@@ -96,7 +100,6 @@ class PageHandler(ContentHandler):
         return self.client.get_wiki_page(context["course_id"], context["item_id"])
 
     def parse(self, context, data):
-        temp = ''
         return {
             "id":       data["page_id"],
             "title":    data["title"],
@@ -107,10 +110,6 @@ class PageHandler(ContentHandler):
             "file_path": f"pages/{data['page_id']}.html",
         }
 
-    def save(self, parsed):
-        # Override to handle file downloads if needed
-        self.storage.write_json(parsed)
-        self.storage.write_html(parsed["body"], parsed["file_path"])
 
 class DiscussionHandler(ContentHandler):
     def fetch(self, context):

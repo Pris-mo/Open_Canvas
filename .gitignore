@@ -5,3 +5,4 @@ __pycache__/
 **/__pycache__/** */
 canvas_crawler/output/json_output/**
 canvas_crawler/output/pages/**
+canvas_crawler/output/assignments/**
