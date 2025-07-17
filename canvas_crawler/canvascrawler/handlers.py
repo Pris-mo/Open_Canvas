@@ -121,7 +121,9 @@ class DiscussionHandler(ContentHandler):
             "title":    data["title"],
             "type":     "discussion",
             "url":      data["html_url"],
-            "depth":    context["depth"]
+            "depth":    context["depth"],
+            "body":     data.get("message", ""),
+            "file_path": f"discussions/{data['id']}.html",      
         }
 
 class ModuleHandler(ContentHandler):
