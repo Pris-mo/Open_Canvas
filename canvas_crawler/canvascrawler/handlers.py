@@ -56,7 +56,9 @@ class SyllabusHandler(ContentHandler):
             "type":  "syllabus",
             "title": data.get("name"),
             "data":  data.get("syllabus_body"),    
-            "depth": context["depth"]
+            "depth": context["depth"],
+            "body": data.get("syllabus_body", ""),
+            "file_path": f"syllabus/{data['id']}.html",
         }
     
 class ModulesHandler(ContentHandler):
@@ -76,6 +78,7 @@ class AnnouncementsHandler(ContentHandler):
     def fetch(self, context):
         return self.client.get_announcements(context["course_id"])
     def parse(self, context, data):
+        tmp = ''
         return {
             "type":    "announcements",
             "course":  context["course_id"],
