@@ -8,3 +8,4 @@ canvas_crawler/output/pages/**
 canvas_crawler/output/assignments/**
 canvas_crawler/output/discussions/**
 canvas_crawler/output/syllabus/**
+canvas_crawler/output/files/**

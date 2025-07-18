@@ -3,4 +3,11 @@ Un-Tested:
 
 Not-implemented:
 - External links need to be implemented
-- Files not implemented
+- include published status
+- Annoucements:
+    - Needs testing
+    - Needs storage implementation
+
+
+Stretch:
+- Google Drive links if possible should be implemented
