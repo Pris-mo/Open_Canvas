@@ -149,11 +149,12 @@ class FileHandler(ContentHandler):
         return self.client.get_file(context["course_id"], context["item_id"])
 
     def parse(self, context, data):
+        tmp = ''
         file_data = {
             "id":       data["id"],
             "title":    data["display_name"],
             "type":     "file",
-            "extension": data["content-type"].split("/")[-1],
+            "extension": data["filename"].split('.')[-1] if '.' in data["filename"] else data['content-type'].split('/')[-1],
             "url":      data["url"],
             "depth":    context["depth"]
         }
