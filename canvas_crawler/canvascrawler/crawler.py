@@ -1,5 +1,6 @@
 from collections import deque
 from .handlers import HandlerFactory
+from .utils import extract_hrefs, classify_link
 
 class CanvasCrawler:
     def __init__(self, client, course_id, storage, depth_limit, logger):
@@ -13,8 +14,8 @@ class CanvasCrawler:
     def _seed(self):
          # each context dict carries course_id, item_id, and current depth
         return [
-            ("syllabus",          {"course_id": self.course_id, "item_id": None, "depth": 0}),
-#            ("modules",           {"course_id": self.course_id, "item_id": None, "depth": 0}),
+#            ("syllabus",          {"course_id": self.course_id, "item_id": None, "depth": 0}),
+            ("modules",           {"course_id": self.course_id, "item_id": None, "depth": 0}),
 #            ("announcements",     {"course_id": self.course_id, "item_id": None, "depth": 0}),
 #            ("assignments", {"course_id": self.course_id, "item_id": None, "depth": 0}),
         ]
@@ -36,14 +37,34 @@ class CanvasCrawler:
 
             try:
                 handler = HandlerFactory.get_handler(content_type, self.client, self.storage, self.logger)
-                handler.run(context)
+                parsed = handler.run(context)
             except Exception as e:
                 self.logger.error(f"Failed to handle {content_type}/{context['item_id']}: {e}")
                 continue
 
-            # discover new links via parsed JSON or client calls...
+            # Enqueue links discovered via the module/assignment logic
             for link_type, new_context in self.discover_links(content_type, context):
                 queue.append((link_type, new_context))
+            
+            # Enqueue links via href extraction
+            body_html = parsed.get("body", "")
+            base_url  = self.client.server_url.rstrip("/")
+            next_depth = context["depth"] + 1
+
+            for href in extract_hrefs(body_html):
+                classified = classify_link(href, base_url)
+                if classified:
+                    ct, item_id = classified
+                    new_ctx = {
+                        "course_id": context["course_id"],
+                        "item_id":   item_id,
+                        "depth":     next_depth
+                    }
+                    queue.append((ct, new_ctx))
+                else:
+                    # optional: record external links in parsed, or just ignore
+                    pass
+
 
     def discover_links(self, content_type, context):
         cid        = context["course_id"]
@@ -109,6 +130,8 @@ class CanvasCrawler:
                     "announcement",
                     {"course_id": cid, "item_id": ann["id"], "depth": next_depth}
                 ))
+            
+
 
         # return all the new work items
         return links

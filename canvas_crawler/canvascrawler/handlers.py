@@ -10,6 +10,7 @@ class ContentHandler(ABC):
         data   = self.fetch(context)             # 1) API call
         parsed = self.parse(context, data)       # 2) normalize/flatten into your JSON schema
         self.save(parsed)                        # 3) write JSON + download raw files
+        return parsed
 
     @abstractmethod
     def fetch(self, context):
@@ -27,11 +28,9 @@ class ContentHandler(ABC):
 
 class AssignmentHandler(ContentHandler):
     def fetch(self, context):
-        temp = ''
         return self.client.get_assignment(context["course_id"], context["item_id"])
 
     def parse(self, context, data):
-        temp = ''
         return {
             "id":       data["id"],
             "title":    data["name"],
@@ -43,8 +42,6 @@ class AssignmentHandler(ContentHandler):
             "body":   data.get("description", ""),
             "file_path": f"assignments/{data['id']}.html",
         }
-
-
 
 class SyllabusHandler(ContentHandler):
     def fetch(self, context):
@@ -145,6 +142,31 @@ class ModuleHandler(ContentHandler):
             "depth":  context["depth"],
         }
         return module_data
+    
+
+class FileHandler(ContentHandler):
+    def fetch(self, context):
+        return self.client.get_file(context["course_id"], context["item_id"])
+
+    def parse(self, context, data):
+        file_data = {
+            "id":       data["id"],
+            "title":    data["display_name"],
+            "type":     "file",
+            "extension": data["content-type"].split("/")[-1],
+            "url":      data["url"],
+            "depth":    context["depth"]
+        }
+        file_data["file_path"] = f"files/{data['id']}.{file_data['extension']}"
+        return file_data
+    
+    def save(self, parsed):
+        self.storage.write_json(parsed)
+        # Download the actual file
+        if parsed.get("url"):
+            self.storage.download_file(parsed["url"], parsed["file_path"])
+        else:
+            self.logger.warning(f"No URL for file {parsed['id']}, skipping download.")
 
 
 # And finally the factory:
@@ -158,6 +180,7 @@ class HandlerFactory:
         "page":              PageHandler,
         "discussion":        DiscussionHandler,
         "assignment":        AssignmentHandler,
+        "file":              FileHandler,
         # files, external links,
     }
 
