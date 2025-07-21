@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Run Canvas Crawler",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "${workspaceFolder}/canvas_crawler/canvas_crawler.py",
+        "args": [
+          "--course-id", "3234",
+          "--output-dir", "${workspaceFolder}/canvas_crawler/output",
+          "--depth-limit", "15",
+          "--verbose"
+        ],
+        "envFile": "${workspaceFolder}/.env",
+        "console": "integratedTerminal",
+        "justMyCode": true
+      }
+      
+    ]
+  }
