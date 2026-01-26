@@ -7,6 +7,8 @@ Not-implemented:
 - Annoucements:
     - Needs testing
     - Needs storage implementation
+- Quizzes - are these implemented?
+- Locked content - see this course as an example https://learn.canvas.net/courses/3383
 
 
 Stretch:
