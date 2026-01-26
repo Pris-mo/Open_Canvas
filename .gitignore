@@ -9,6 +9,7 @@ canvas_crawler/output/assignments/**
 canvas_crawler/output/discussions/**
 canvas_crawler/output/syllabus/**
 canvas_crawler/output/files/**
+canvas_crawler/output/quizzes/**
 logs/
 pre_processer/tmp.py
 pre_processer/test_files/

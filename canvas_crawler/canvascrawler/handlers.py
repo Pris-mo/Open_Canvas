@@ -175,16 +175,21 @@ class classicQuizHandler(ContentHandler):
         return self.client.get_classic_quiz(context["course_id"], context["item_id"])
 
     def parse(self, context, data):
+        tmp = ''
         return {
             "id":       data["id"],
-            "title":    data["name"],
-            "type":     "assignment",
+            "title":    data["title"],
+            "type":     data['quiz_type'],
             "due_at":   data.get("due_at"),
             "points_possible": data.get("points_possible"),
+            "allowed_attempts": data.get("allowed_attempts"),
+            "scoring_policy": data.get("scoring_policy"),
+            "number_of_questions": data.get("question_count"),
+            "time_limit": data.get("time_limit"),
             "depth":    context["depth"],
             "url":      data["html_url"],
             "body":   data.get("description", ""),
-            "file_path": f"assignments/{data['id']}.html",
+            "file_path": f"quizzes/{data['id']}.html",
         }
 
 # The factory:
