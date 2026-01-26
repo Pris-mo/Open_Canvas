@@ -170,6 +170,23 @@ class FileHandler(ContentHandler):
             self.logger.warning(f"No URL for file {parsed['id']}, skipping download.")
 
 
+class classicQuizHandler(ContentHandler):
+    def fetch(self, context):
+        return self.client.get_classic_quiz(context["course_id"], context["item_id"])
+
+    def parse(self, context, data):
+        return {
+            "id":       data["id"],
+            "title":    data["name"],
+            "type":     "assignment",
+            "due_at":   data.get("due_at"),
+            "points_possible": data.get("points_possible"),
+            "depth":    context["depth"],
+            "url":      data["html_url"],
+            "body":   data.get("description", ""),
+            "file_path": f"assignments/{data['id']}.html",
+        }
+
 # And finally the factory:
 class HandlerFactory:
     registry = {
@@ -182,6 +199,7 @@ class HandlerFactory:
         "discussion":        DiscussionHandler,
         "assignment":        AssignmentHandler,
         "file":              FileHandler,
+        "quiz":     classicQuizHandler,
         # files, external links,
     }
 

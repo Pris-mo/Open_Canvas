@@ -324,6 +324,14 @@ class Canvas:
     def get_module_items(self, course_id, module_id):
         url = f"{self.server_url}/api/v1/courses/{course_id}/modules/{module_id}/items?per_page=100"
         return self.get_paginated_data(url)
+    
+    def get_module_item(self, course_id, module_id, item_id):
+        url = f"{self.server_url}/api/v1/courses/{course_id}/modules/{module_id}/items/{item_id}"
+        r = requests.get(url, headers=self.headers())
+        if r.status_code == 200:
+            return r.json()
+        else:
+            r.raise_for_status()
 
     def get_modules(self, course_id):
         url = f"{self.server_url}/api/v1/courses/{course_id}/modules?per_page=100"
