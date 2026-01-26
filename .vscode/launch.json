@@ -15,7 +15,14 @@
         "envFile": "${workspaceFolder}/.env",
         "console": "integratedTerminal",
         "justMyCode": true
-      }
-      
+      },
+      {
+        "name": "Run Current Python File",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "${file}",
+        "console": "integratedTerminal",
+        "justMyCode": true
+      }      
     ]
   }
