@@ -96,28 +96,22 @@ class CanvasCrawler:
             for mi in self.client.get_module_items(cid, context["item_id"]):
                 ct = mi["type"].lower()  # e.g. "page", "assignment", "file"
                 
+                # NOTE: Canvas module items use different IDs depending on type.
+                # We must translate module-item records into real content IDs here.
                 if ct == "subheader":
                     continue
                 elif ct == "page":
-                    links.append((
-                        ct,
-                        {"course_id": cid, "item_id": mi["page_url"], "depth": next_depth}
-                    ))
-                elif ct == "discussion":
-                    links.append((
-                        ct,
-                        {"course_id": cid, "item_id": mi["content_id"], "depth": next_depth}
-                    ))
-                elif ct == "assignment":
-                    links.append((
-                        ct,
-                        {"course_id": cid, "item_id": mi["content_id"], "depth": next_depth}
-                    ))
+                    item_id = mi["page_url"]
+                elif ct in ("assignment", "discussion","quiz"):
+                    item_id = mi["content_id"]
                 else:
-                    links.append((
-                        ct,
-                        {"course_id": cid, "item_id": mi["id"], "depth": next_depth}
-                    ))
+                    # Fallback: module item id (may not always map to real object)
+                    item_id = mi["id"]
+
+                links.append((
+                    ct,
+                    {"course_id": cid, "item_id": item_id, "depth": next_depth}
+                ))
 
         # 3) assignments list → each assignment
         elif content_type == "assignments":
