@@ -187,7 +187,7 @@ class classicQuizHandler(ContentHandler):
             "file_path": f"assignments/{data['id']}.html",
         }
 
-# And finally the factory:
+# The factory:
 class HandlerFactory:
     registry = {
         "syllabus":          SyllabusHandler,
@@ -204,8 +204,13 @@ class HandlerFactory:
     }
 
     @classmethod
+    def has_handler(cls, content_type: str) -> bool:
+        return content_type in cls.registry
+    
+    @classmethod
     def get_handler(cls, content_type, client, storage, logger):
         Handler = cls.registry.get(content_type)
         if not Handler:
             raise ValueError(f"No handler for {content_type}")
         return Handler(client, storage, logger)
+    

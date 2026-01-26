@@ -20,6 +20,18 @@ class CanvasCrawler:
 #            ("assignments", {"course_id": self.course_id, "item_id": None, "depth": 0}),
         ]
 
+    def _enqueue(self, queue, content_type, context, source="unknown"):
+        # Enforce: if we can discover/queue it, we must be able to handle it
+        if not HandlerFactory.has_handler(content_type):
+            self.logger.error(
+                f"Discovered/queued content_type='{content_type}' from {source} "
+                f"but no handler exists. context={context}"
+            )
+            return False
+
+        queue.append((content_type, context))
+        return True
+
     def run(self):
         # seed with syllabus, modules, announcements, etc.
         queue = deque(self._seed())
@@ -44,7 +56,7 @@ class CanvasCrawler:
 
             # Enqueue links discovered via the module/assignment logic
             for link_type, new_context in self.discover_links(content_type, context):
-                queue.append((link_type, new_context))
+                self._enqueue(queue, link_type, new_context, source=f"discover_links:{content_type}")
             
             # Enqueue links via href extraction
             body_html = parsed.get("body", "")
@@ -60,7 +72,7 @@ class CanvasCrawler:
                         "item_id":   item_id,
                         "depth":     next_depth
                     }
-                    queue.append((ct, new_ctx))
+                    self._enqueue(queue, ct, new_ctx, source="href_extraction")
                 else:
                     # optional: record external links in parsed, or just ignore
                     pass
