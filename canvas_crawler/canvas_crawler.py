@@ -22,6 +22,11 @@ def parse_args():
     parser.add_argument('--output-dir', default='./output', help='Output directory')
     parser.add_argument('--depth-limit', type=int, default=15, help='Max recursion depth')
     parser.add_argument('--canvas-url', default='https://learn.canvas.net', help='Base URL of the Canvas instance')
+    parser.add_argument(
+        "--include-external-links",
+        action="store_true",
+        help="Fetch and save external link HTML (best effort). Default: off.",
+    )
     parser.add_argument('--verbose', action='store_true', help='Enable debug logging')
     return parser.parse_args()
 
@@ -91,7 +96,8 @@ def main():
         course_id=args.course_id,
         storage=storage,
         depth_limit=args.depth_limit,
-        logger=logger,
+        logger=logger,      
+        include_external_links=args.include_external_links,
     )
 
     # Run the crawler
