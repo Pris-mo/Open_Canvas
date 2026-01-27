@@ -1,10 +1,12 @@
 import argparse
 import logging
 import sys
-from canvascrawler.client import Canvas
+from canvascrawler.client import Canvas, WebClient
 from canvascrawler.storage import StorageManager
 from canvascrawler.crawler import CanvasCrawler
+from canvascrawler.handlers import ClientBundle
 import os
+from datetime import datetime
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -19,31 +21,64 @@ def parse_args():
     )
     parser.add_argument('--output-dir', default='./output', help='Output directory')
     parser.add_argument('--depth-limit', type=int, default=15, help='Max recursion depth')
+    parser.add_argument('--canvas-url', default='https://learn.canvas.net', help='Base URL of the Canvas instance')
     parser.add_argument('--verbose', action='store_true', help='Enable debug logging')
     return parser.parse_args()
 
-def setup_logging(verbose: bool):
+def setup_logging(verbose: bool, log_path="crawler.log"):
     level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        format='%(asctime)s %(levelname)-8s %(message)s',
-        level=level,
-        datefmt='%Y-%m-%d %H:%M:%S'
+
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+
+    logger = logging.getLogger("canvas_crawler")
+    logger.setLevel(level)
+    logger.propagate = False
+
+    formatter = logging.Formatter(
+        "%(asctime)s %(levelname)-8s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
     )
-    return logging.getLogger('canvas_crawler')
+
+    # Console handler
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(level)
+    ch.setFormatter(formatter)
+
+    # File handler
+    fh = logging.FileHandler(log_path)
+    fh.setLevel(level)
+    fh.setFormatter(formatter)
+
+    logger.addHandler(ch)
+    logger.addHandler(fh)
+
+    return logger
+
 
 def main():
     args = parse_args()
-    logger = setup_logging(args.verbose)
+    
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_path = os.path.join(args.output_dir,"logs", f"crawl_{ts}.log")
+    logger = setup_logging(args.verbose, log_path=log_path)
     logger.info("Starting Canvas Crawler")
     logger.debug(f"Args: {args}")
 
+    args.output_dir = os.path.join(args.output_dir,"output", str(args.course_id))
     
     if not args.token:
         logger.error("No API token provided. Use --token or set CANVAS_TOKEN.")
         sys.exit(1)
 
     # Initialize Canvas API client
-    client = Canvas(token=args.token, url="https://learn.canvas.net")
+    canvas = Canvas(token=args.token, url=args.canvas_url)
+    
+    # Initialize Web client
+    web_client = WebClient(timeout=30)
+
+    # Bundle clients
+    client = ClientBundle(canvas=canvas, web=web_client)
+
     logger.debug("Canvas client initialized")
 
     # Set up file storage

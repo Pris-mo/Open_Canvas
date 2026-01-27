@@ -1,13 +1,11 @@
 Un-Tested:
-- Syllabus has not been tested on a course that includes one.
 
 Not-implemented:
-- External links need to be implemented
-- include published status
-- Annoucements:
-    - Needs testing
-    - Needs storage implementation
+- med prio
+-- include published status
 
+- low prio
+-- Include flag to enable/disable external links
 
 Stretch:
 - Google Drive links if possible should be implemented

@@ -16,7 +16,7 @@ class StorageManager:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(record, f, indent=2)
-        self.logger.debug(f"Wrote JSON → {path}")
+        self.logger.debug(f"Wrote JSON -> {path}")
 
     def download_file(self, url, file_path):
         full_path = os.path.join(self.base_dir, file_path.lstrip("/"))
@@ -26,11 +26,11 @@ class StorageManager:
         with open(full_path, "wb") as f:
             for chunk in r.iter_content(1024):
                 f.write(chunk)
-        self.logger.debug(f"Downloaded file → {full_path}")
+        self.logger.debug(f"Downloaded file -> {full_path}")
 
     def write_html(self, content, file_path):
         path = os.path.join(self.base_dir, file_path.lstrip("/"))
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
-        self.logger.debug(f"Wrote HTML → {path}")
+        self.logger.debug(f"Wrote HTML -> {path}")
