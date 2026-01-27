@@ -8,7 +8,7 @@
         "program": "${workspaceFolder}/canvas_crawler/canvas_crawler.py",
         "args": [
           "--course-id", "3383",
-          "--output-dir", "${workspaceFolder}/canvas_crawler/output",
+          "--output-dir", "${workspaceFolder}/canvas_crawler",
           "--depth-limit", "15",
           "--verbose"
         ],

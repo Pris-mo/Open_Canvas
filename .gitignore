@@ -3,13 +3,7 @@
 __pycache__/
 **/__pycache__/
 **/__pycache__/** */
-canvas_crawler/output/json_output/**
-canvas_crawler/output/pages/**
-canvas_crawler/output/assignments/**
-canvas_crawler/output/discussions/**
-canvas_crawler/output/syllabus/**
-canvas_crawler/output/files/**
-canvas_crawler/output/quizzes/**
+canvas_crawler/output/**
 logs/
 pre_processer/tmp.py
 pre_processer/test_files/
