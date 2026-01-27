@@ -15,8 +15,8 @@ class CanvasCrawler:
          # each context dict carries course_id, item_id, and current depth
         return [
 #            ("syllabus",          {"course_id": self.course_id, "item_id": None, "depth": 0}),
-            ("modules",           {"course_id": self.course_id, "item_id": None, "depth": 0}),
-#            ("announcements",     {"course_id": self.course_id, "item_id": None, "depth": 0}),
+#            ("modules",           {"course_id": self.course_id, "item_id": None, "depth": 0}),
+            ("announcements",     {"course_id": self.course_id, "item_id": None, "depth": 0}),
 #            ("assignments", {"course_id": self.course_id, "item_id": None, "depth": 0}),
         ]
 

@@ -219,6 +219,32 @@ class AnnouncementsHandler(ContentHandler):
             "depth":   context["depth"]
         }
     
+class AnnoucementHandler(ContentHandler):
+    def fetch(self, context):
+        tmp = self.client.canvas.get_announcement(context["course_id"], context["item_id"])
+        return tmp
+    
+    
+    def run(self, context):
+        data   = self.fetch(context)             # 1) API call
+        parsed = self.parse(context, data)       # 2) normalize/flatten into your JSON schema
+        self.save(parsed)                        # 3) write JSON + download raw files
+        return parsed
+    
+
+
+    def parse(self, context, data):
+        tmp = ''
+        return {
+            "id":       data["id"],
+            "title":    data["title"],
+            "type":     "announcement",
+            "url":      data["html_url"],
+            "depth":    context["depth"],
+            "body":     data.get("message", ""),
+            "file_path": f"announcements/{data['id']}.html",      
+        }
+    
 class AssignmentsHandler(ContentHandler):
     def fetch(self, context):
         return self.client.canvas.get_assignments(context["course_id"])
@@ -342,6 +368,7 @@ class HandlerFactory:
         "quiz":              classicQuizHandler,
         "new_quiz":          NewQuizHandler,
         "external_link":     ExternalLinkHandler,
+        "announcement":      AnnoucementHandler,
         # files, external links,
     }
 

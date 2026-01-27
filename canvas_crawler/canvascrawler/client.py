@@ -229,6 +229,12 @@ class Canvas:
         r.raise_for_status()
         return r.json()
 
+    def get_announcement(self, course_id, topic_id):
+        url = f"{self.server_url}/api/v1/courses/{course_id}/discussion_topics/{topic_id}"
+        r   = requests.get(url, headers=self.headers())
+        r.raise_for_status()
+        return r.json()
+
     def get_course(self, course_id, syllabus=False):
             assignment_data = f'{self.server_url}/api/v1/courses/{course_id}/'
 
