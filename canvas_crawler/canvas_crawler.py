@@ -20,6 +20,7 @@ def parse_args():
     )
     parser.add_argument('--output-dir', default='./output', help='Output directory')
     parser.add_argument('--depth-limit', type=int, default=15, help='Max recursion depth')
+    parser.add_argument('--canvas-url', default='https://learn.canvas.net', help='Base URL of the Canvas instance')
     parser.add_argument('--verbose', action='store_true', help='Enable debug logging')
     return parser.parse_args()
 
@@ -69,7 +70,7 @@ def main():
         sys.exit(1)
 
     # Initialize Canvas API client
-    client = Canvas(token=args.token, url="https://learn.canvas.net")
+    client = Canvas(token=args.token, url=args.canvas_url)
     logger.debug("Canvas client initialized")
 
     # Set up file storage

@@ -7,9 +7,10 @@
         "request": "launch",
         "program": "${workspaceFolder}/canvas_crawler/canvas_crawler.py",
         "args": [
-          "--course-id", "3383",
+          "--course-id", "3376",
           "--output-dir", "${workspaceFolder}/canvas_crawler",
           "--depth-limit", "15",
+          "--canvas-url", "https://learn.canvas.net",
           "--verbose"
         ],
         "envFile": "${workspaceFolder}/.env",
