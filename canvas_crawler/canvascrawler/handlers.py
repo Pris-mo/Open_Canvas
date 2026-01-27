@@ -8,9 +8,23 @@ class ContentHandler(ABC):
 
     def run(self, context):
         data   = self.fetch(context)             # 1) API call
+        
+        # if the content is locked, handle accordingly
+        if isinstance(data, dict) and data.get("locked_for_user") is True:
+            parsed = self.parse_locked(context, data)
+            self.save(parsed)  # save stub JSON; body is empty so no HTML written
+            self.logger.warning(
+                f"Locked content: type={context.get('content_type')} id={parsed.get('id')} "
+                f"course={context.get('course_id')} item={context.get('item_id')} "
+                f"reason={parsed.get('lock_explanation')!r}"
+            )
+            return parsed
+        
+        # normal processing
         parsed = self.parse(context, data)       # 2) normalize/flatten into your JSON schema
         self.save(parsed)                        # 3) write JSON + download raw files
         return parsed
+    
 
     @abstractmethod
     def fetch(self, context):
@@ -19,6 +33,23 @@ class ContentHandler(ABC):
     @abstractmethod
     def parse(self, data):
         ...
+
+    def parse_locked(self, context, data):
+        """
+        Default locked-content stub.
+        Subclasses can override if they can extract better title/url fields.
+        """
+        return {
+            "type": context.get("content_type", "unknown"),  # optional; see note below
+            "id": data.get("id", context.get("item_id")),
+            "title": data.get("title") or data.get("name"),
+            "url": data.get("html_url") or data.get("url"),
+            "depth": context.get("depth"),
+            "locked_for_user": True,
+            "lock_explanation": data.get("lock_explanation") or data.get("unlock_at"),
+            "body": "",
+            "file_path": f"locked/{data.get('id', context.get('item_id'))}.html",
+        }
 
     def save(self, parsed):
         # default implementation, or override in subclasses
@@ -175,7 +206,6 @@ class classicQuizHandler(ContentHandler):
         return self.client.get_classic_quiz(context["course_id"], context["item_id"])
 
     def parse(self, context, data):
-        tmp = ''
         return {
             "id":       data["id"],
             "title":    data["title"],

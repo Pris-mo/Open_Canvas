@@ -49,7 +49,12 @@ class CanvasCrawler:
 
             try:
                 handler = HandlerFactory.get_handler(content_type, self.client, self.storage, self.logger)
-                parsed = handler.run(context)
+
+                # inject content_type so handlers can reference it (esp. for locked stubs)
+                ctx = dict(context)
+                ctx["content_type"] = content_type
+
+                parsed = handler.run(ctx)
             except Exception as e:
                 self.logger.error(f"Failed to handle {content_type}/{context['item_id']}: {e}")
                 continue
@@ -83,7 +88,7 @@ class CanvasCrawler:
         next_depth = context["depth"] + 1
         links      = []
 
-        # 1) modules list → each module
+        # 1) modules list -> each module
         if content_type == "modules":
             for mod in self.client.get_modules(cid):
                 links.append((
@@ -91,7 +96,7 @@ class CanvasCrawler:
                     {"course_id": cid, "item_id": mod["id"], "depth": next_depth}
                 ))
 
-        # 2) one module → its items (pages, assignments, files, etc.)
+        # 2) one module -> its items (pages, assignments, files, etc.)
         elif content_type == "module":
             for mi in self.client.get_module_items(cid, context["item_id"]):
                 ct = mi["type"].lower()  # e.g. "page", "assignment", "file"
@@ -113,7 +118,7 @@ class CanvasCrawler:
                     {"course_id": cid, "item_id": item_id, "depth": next_depth}
                 ))
 
-        # 3) assignments list → each assignment
+        # 3) assignments list -> each assignment
         elif content_type == "assignments":
             for a in self.client.get_assignments(cid):
                 links.append((
@@ -121,7 +126,7 @@ class CanvasCrawler:
                     {"course_id": cid, "item_id": a["id"], "depth": next_depth}
                 ))
 
-        # 4) pages list → each page
+        # 4) pages list -> each page
         elif content_type == "pages":
             for p in self.client.get_pages(cid):
                 links.append((
@@ -129,7 +134,7 @@ class CanvasCrawler:
                     {"course_id": cid, "item_id": p["id"], "depth": next_depth}
                 ))
 
-        # 5) announcements list → each announcement
+        # 5) announcements list -> each announcement
         elif content_type == "announcements":
             for ann in self.client.get_announcements(cid):
                 links.append((
