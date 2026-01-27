@@ -18,6 +18,23 @@
         "justMyCode": true
       },
       {
+        "name": "Run Canvas Crawler w/ External Links",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "${workspaceFolder}/canvas_crawler/canvas_crawler.py",
+        "args": [
+          "--course-id", "3376",
+          "--output-dir", "${workspaceFolder}/canvas_crawler",
+          "--depth-limit", "15",
+          "--canvas-url", "https://learn.canvas.net",
+          "--include-external-links",
+          "--verbose"
+        ],
+        "envFile": "${workspaceFolder}/.env",
+        "console": "integratedTerminal",
+        "justMyCode": true
+      },
+      {
         "name": "Run Current Python File",
         "type": "debugpy",
         "request": "launch",

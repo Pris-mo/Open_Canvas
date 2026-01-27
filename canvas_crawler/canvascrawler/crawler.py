@@ -3,19 +3,21 @@ from .handlers import HandlerFactory
 from .utils import extract_hrefs, classify_link
 
 class CanvasCrawler:
-    def __init__(self, client, course_id, storage, depth_limit, logger):
-        self.client      = client
-        self.course_id   = course_id
-        self.storage     = storage
-        self.depth_limit = depth_limit
-        self.logger      = logger
+    def __init__(self, client, course_id, storage, depth_limit, logger, include_external_links=False):
+        self.client                 = client
+        self.course_id              = course_id
+        self.storage                = storage
+        self.depth_limit            = depth_limit
+        self.logger                 = logger
+        self.include_external_links = include_external_links
+        
 
 
     def _seed(self):
          # each context dict carries course_id, item_id, and current depth
         return [
 #            ("syllabus",          {"course_id": self.course_id, "item_id": None, "depth": 0}),
-#            ("modules",           {"course_id": self.course_id, "item_id": None, "depth": 0}),
+            ("modules",           {"course_id": self.course_id, "item_id": None, "depth": 0}),
             ("announcements",     {"course_id": self.course_id, "item_id": None, "depth": 0}),
 #            ("assignments", {"course_id": self.course_id, "item_id": None, "depth": 0}),
         ]
@@ -39,6 +41,11 @@ class CanvasCrawler:
 
         while queue:
             content_type, context = queue.popleft()
+
+            if content_type == "external_link" and not self.include_external_links:
+                self.logger.info(f"Skipping external link (disabled): {context.get('item_id')}")
+                continue
+
             if context["depth"] > self.depth_limit:
                 continue
 
