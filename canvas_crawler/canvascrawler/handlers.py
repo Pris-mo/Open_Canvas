@@ -31,7 +31,7 @@ class ContentHandler(ABC):
         ...
 
     @abstractmethod
-    def parse(self, data):
+    def parse(self, context, data):
         ...
 
     def parse_locked(self, context, data):
