@@ -107,6 +107,12 @@ class CanvasCrawler:
                     continue
                 elif ct == "page":
                     item_id = mi["page_url"]
+                elif ct == "assignment" and mi.get("quiz_lti") == True:
+                    # Canvas New Quizzes appear as module items of type "Assignment" with quiz_lti=True.
+                    # They cannot be fetched/parsed via the normal Assignments API, so route them to a
+                    # dedicated handler.
+                    ct = "new_quiz"
+                    item_id = mi["content_id"]
                 elif ct in ("assignment", "discussion","quiz"):
                     item_id = mi["content_id"]
                 else:

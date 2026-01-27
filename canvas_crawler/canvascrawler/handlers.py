@@ -58,6 +58,34 @@ class ContentHandler(ABC):
             self.storage.write_html(parsed["body"], parsed["file_path"])
 
 class AssignmentHandler(ContentHandler):
+    def run(self, context):
+        data = self.fetch(context)
+
+        # locked handling still applies
+        if isinstance(data, dict) and data.get("locked_for_user") is True:
+            parsed = self.parse_locked(context, data)
+            self.save(parsed)
+            self.logger.warning(
+                f"Locked content: type={context.get('content_type')} id={parsed.get('id')} "
+                f"course={context.get('course_id')} item={context.get('item_id')} "
+                f"reason={parsed.get('lock_explanation')!r}"
+            )
+            return parsed
+
+        # SAFETY NET: New Quizzes appear as assignments but must be handled via modules
+        if isinstance(data, dict) and data.get("quiz_lti") is True:
+            self.logger.info(
+                f"Skipping New Quiz discovered via assignments: "
+                f"course={context.get('course_id')} assignment_id={data.get('id')} "
+                f"(should be discovered via modules instead)"
+            )
+            return None  # important: tell crawler nothing was parsed
+
+        # normal assignment path
+        parsed = self.parse(context, data)
+        self.save(parsed)
+        return parsed
+
     def fetch(self, context):
         return self.client.get_assignment(context["course_id"], context["item_id"])
 
@@ -72,6 +100,33 @@ class AssignmentHandler(ContentHandler):
             "url":      data["html_url"],
             "body":   data.get("description", ""),
             "file_path": f"assignments/{data['id']}.html",
+        }
+
+class NewQuizHandler(ContentHandler):
+    def fetch(self, context):
+        tmp = self.client.get_new_quiz(context["course_id"], context["item_id"])
+        return tmp
+
+    def parse(self, context, data):
+        url = f'{self.client.server_url}/courses/{context["course_id"]}/quizzes/{data["id"]}'
+        allowed_attempts = (
+            data.get("quiz_settings", {})
+                .get("multiple_attempts", {})
+                .get("max_attempts", "")
+        )
+        return {
+            "id":       data["id"],
+            "title":    data["title"],
+            "type":     "new_quiz",
+            "due_at":   data.get("due_at"),
+            "points_possible": data.get("points_possible"),
+            "allowed_attempts": allowed_attempts,         
+            "scoring_policy": data['grading_type'],                
+            "time_limit": data['quiz_settings']['session_time_limit_in_seconds'],
+            "depth":    context["depth"],
+            "url":     url,
+            "body":   data.get("instructions", ""),
+            "file_path": f"new_quizzes/{data['id']}.html",
         }
 
 class SyllabusHandler(ContentHandler):
@@ -234,7 +289,8 @@ class HandlerFactory:
         "discussion":        DiscussionHandler,
         "assignment":        AssignmentHandler,
         "file":              FileHandler,
-        "quiz":     classicQuizHandler,
+        "quiz":              classicQuizHandler,
+        "new_quiz":          NewQuizHandler,
         # files, external links,
     }
 
