@@ -1,9 +1,10 @@
 import argparse
 import logging
 import sys
-from canvascrawler.client import Canvas
+from canvascrawler.client import Canvas, WebClient
 from canvascrawler.storage import StorageManager
 from canvascrawler.crawler import CanvasCrawler
+from canvascrawler.handlers import ClientBundle
 import os
 from datetime import datetime
 
@@ -70,7 +71,14 @@ def main():
         sys.exit(1)
 
     # Initialize Canvas API client
-    client = Canvas(token=args.token, url=args.canvas_url)
+    canvas = Canvas(token=args.token, url=args.canvas_url)
+    
+    # Initialize Web client
+    web_client = WebClient(timeout=30)
+
+    # Bundle clients
+    client = ClientBundle(canvas=canvas, web=web_client)
+
     logger.debug("Canvas client initialized")
 
     # Set up file storage

@@ -55,6 +55,12 @@ class CanvasCrawler:
                 ctx["content_type"] = content_type
 
                 parsed = handler.run(ctx)
+                if not parsed:
+                    continue
+
+                # Special case: skip external links from further processing (We don't want to crawl the web!)
+                if content_type == "external_link":
+                    continue
             except Exception as e:
                 self.logger.error(f"Failed to handle {content_type}/{context['item_id']}: {e}")
                 continue
@@ -65,7 +71,7 @@ class CanvasCrawler:
             
             # Enqueue links via href extraction
             body_html = parsed.get("body", "")
-            base_url  = self.client.server_url.rstrip("/")
+            base_url = self.client.canvas.server_url.rstrip("/")
             next_depth = context["depth"] + 1
 
             for href in extract_hrefs(body_html):
@@ -79,7 +85,12 @@ class CanvasCrawler:
                     }
                     self._enqueue(queue, ct, new_ctx, source="href_extraction")
                 else:
-                    # optional: record external links in parsed, or just ignore
+                    if href.startswith("http://") or href.startswith("https://"):
+                        self._enqueue(queue, "external_link", {
+                            "course_id": context["course_id"],
+                            "item_id": href,
+                            "depth": next_depth
+                        }, source="href_external")
                     pass
 
 
@@ -90,7 +101,7 @@ class CanvasCrawler:
 
         # 1) modules list -> each module
         if content_type == "modules":
-            for mod in self.client.get_modules(cid):
+            for mod in self.client.canvas.get_modules(cid):
                 links.append((
                     "module",
                     {"course_id": cid, "item_id": mod["id"], "depth": next_depth}
@@ -98,7 +109,7 @@ class CanvasCrawler:
 
         # 2) one module -> its items (pages, assignments, files, etc.)
         elif content_type == "module":
-            for mi in self.client.get_module_items(cid, context["item_id"]):
+            for mi in self.client.canvas.get_module_items(cid, context["item_id"]):
                 ct = mi["type"].lower()  # e.g. "page", "assignment", "file"
                 
                 # NOTE: Canvas module items use different IDs depending on type.
@@ -115,6 +126,12 @@ class CanvasCrawler:
                     item_id = mi["content_id"]
                 elif ct in ("assignment", "discussion","quiz"):
                     item_id = mi["content_id"]
+                elif ct in ("externalurl", "externaltool"):
+                    ct = "external_link"
+                    item_id = mi.get("external_url") or mi.get("url")
+                    if not item_id:
+                        self.logger.warning(f"Module item external link missing URL: {mi}")
+                        continue
                 else:
                     # Fallback: module item id (may not always map to real object)
                     item_id = mi["id"]
@@ -126,7 +143,7 @@ class CanvasCrawler:
 
         # 3) assignments list -> each assignment
         elif content_type == "assignments":
-            for a in self.client.get_assignments(cid):
+            for a in self.client.canvas.get_assignments(cid):
                 links.append((
                     "assignment",
                     {"course_id": cid, "item_id": a["id"], "depth": next_depth}
@@ -134,7 +151,7 @@ class CanvasCrawler:
 
         # 4) pages list -> each page
         elif content_type == "pages":
-            for p in self.client.get_pages(cid):
+            for p in self.client.canvas.get_pages(cid):
                 links.append((
                     "page",
                     {"course_id": cid, "item_id": p["id"], "depth": next_depth}
@@ -142,7 +159,7 @@ class CanvasCrawler:
 
         # 5) announcements list -> each announcement
         elif content_type == "announcements":
-            for ann in self.client.get_announcements(cid):
+            for ann in self.client.canvas.get_announcements(cid):
                 links.append((
                     "announcement",
                     {"course_id": cid, "item_id": ann["id"], "depth": next_depth}

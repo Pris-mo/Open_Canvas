@@ -1,6 +1,49 @@
 import requests
 import json
 
+class WebClient:
+    def __init__(self, timeout=15, user_agent=None):
+        self.timeout = timeout
+        self.user_agent = user_agent or "CanvasCrawler/1.0 (+educational crawler; best-effort)"
+
+    def get_html(self, url: str):
+        """
+        Best-effort HTML fetch.
+        Returns a dict you can safely JSON-serialize.
+        Never raises for non-2xx; only raises for network-level issues unless you choose otherwise.
+        """
+        try:
+            resp = requests.get(
+                url,
+                timeout=self.timeout,
+                headers={"User-Agent": self.user_agent},
+                allow_redirects=True,
+            )
+        except requests.RequestException as e:
+            return {
+                "ok": False,
+                "url": url,
+                "final_url": None,
+                "status_code": None,
+                "content_type": None,
+                "text": "",
+                "error": str(e),
+            }
+
+        content_type = resp.headers.get("Content-Type", "")
+        is_html = "text/html" in content_type.lower()
+
+        return {
+            "ok": resp.status_code < 400 and is_html,
+            "url": url,
+            "final_url": resp.url,
+            "status_code": resp.status_code,
+            "content_type": content_type,
+            "text": resp.text if (resp.status_code < 400 and is_html) else "",
+            "error": "" if (resp.status_code < 400) else resp.text[:500],
+        }
+    
+
 class Canvas:
     def __init__(self, token: str,url: str):
         self.access_token = token
