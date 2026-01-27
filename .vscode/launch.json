@@ -1,5 +1,20 @@
 {
     "version": "0.2.0",
+      
+    "inputs": [
+      {
+        "id": "courseId",
+        "type": "promptString",
+        "description": "Canvas Course ID",
+        "default": "3376"
+      },
+      {
+        "id": "canvasUrl",
+        "type": "promptString",
+        "description": "Canvas base URL",
+        "default": "https://learn.canvas.net"
+      }
+    ],
     "configurations": [
       {
         "name": "Run Canvas Crawler",
@@ -7,10 +22,10 @@
         "request": "launch",
         "program": "${workspaceFolder}/canvas_crawler/canvas_crawler.py",
         "args": [
-          "--course-id", "3376",
+          "--course-id", "${input:courseId}",
           "--output-dir", "${workspaceFolder}/canvas_crawler",
           "--depth-limit", "15",
-          "--canvas-url", "https://learn.canvas.net",
+          "--canvas-url", "${input:canvasUrl}",
           "--verbose"
         ],
         "envFile": "${workspaceFolder}/.env",
@@ -23,10 +38,10 @@
         "request": "launch",
         "program": "${workspaceFolder}/canvas_crawler/canvas_crawler.py",
         "args": [
-          "--course-id", "3376",
+          "--course-id", "${input:courseId}",
           "--output-dir", "${workspaceFolder}/canvas_crawler",
           "--depth-limit", "15",
-          "--canvas-url", "https://learn.canvas.net",
+          "--canvas-url", "${input:canvasUrl}",
           "--include-external-links",
           "--verbose"
         ],
