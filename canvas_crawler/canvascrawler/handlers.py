@@ -59,14 +59,14 @@ class ContentHandler(ABC):
             "locked_for_user": True,
             "lock_explanation": data.get("lock_explanation") or data.get("unlock_at"),
             "body": "",
-            "file_path": f"locked/{data.get('id', context.get('item_id'))}.html",
+            "raw_file_path": f"locked/{data.get('id', context.get('item_id'))}.html",
         }
 
     def save(self, parsed):
         # default implementation, or override in subclasses
         self.storage.write_json(parsed)
         if parsed.get("body"):
-            self.storage.write_html(parsed["body"], parsed["file_path"])
+            self.storage.write_html(parsed["body"], parsed["raw_file_path"])
 
 
 
@@ -100,7 +100,7 @@ class ExternalLinkHandler(ContentHandler):
             "fetch_ok": data.get("ok", False),
             "fetch_error": data.get("error", ""),
             "body": html,
-            "file_path": f"external_links/{self._safe_filename(uid)}.html",
+            "raw_file_path": f"external_links/{self._safe_filename(uid)}.html",
         }
 
     def _safe_filename(self, url: str) -> str:
@@ -149,7 +149,7 @@ class AssignmentHandler(ContentHandler):
             "depth":    context["depth"],
             "url":      data["html_url"],
             "body":   data.get("description", ""),
-            "file_path": f"assignments/{data['id']}.html",
+            "raw_file_path": f"assignments/{data['id']}.html",
         }
 
 class NewQuizHandler(ContentHandler):
@@ -176,7 +176,7 @@ class NewQuizHandler(ContentHandler):
             "depth":    context["depth"],
             "url":     url,
             "body":   data.get("instructions", ""),
-            "file_path": f"new_quizzes/{data['id']}.html",
+            "raw_file_path": f"new_quizzes/{data['id']}.html",
         }
 
 class SyllabusHandler(ContentHandler):
@@ -191,7 +191,7 @@ class SyllabusHandler(ContentHandler):
             "data":  data.get("syllabus_body"),    
             "depth": context["depth"],
             "body": data.get("syllabus_body", ""),
-            "file_path": f"syllabus/{data['id']}.html",
+            "raw_file_path": f"syllabus/{data['id']}.html",
         }
     
 class ModulesHandler(ContentHandler):
@@ -219,7 +219,7 @@ class AnnouncementsHandler(ContentHandler):
             "depth":   context["depth"]
         }
     
-class AnnoucementHandler(ContentHandler):
+class AnnouncementHandler(ContentHandler):
     def fetch(self, context):
         tmp = self.client.canvas.get_announcement(context["course_id"], context["item_id"])
         return tmp
@@ -242,7 +242,7 @@ class AnnoucementHandler(ContentHandler):
             "url":      data["html_url"],
             "depth":    context["depth"],
             "body":     data.get("message", ""),
-            "file_path": f"announcements/{data['id']}.html",      
+            "raw_file_path": f"announcements/{data['id']}.html",      
         }
     
 class AssignmentsHandler(ContentHandler):
@@ -269,7 +269,7 @@ class PageHandler(ContentHandler):
             "url":      data["html_url"],
             "depth":    context["depth"],
             "body":     data["body"],
-            "file_path": f"pages/{data['page_id']}.html",
+            "raw_file_path": f"pages/{data['page_id']}.html",
         }
 
 
@@ -285,7 +285,7 @@ class DiscussionHandler(ContentHandler):
             "url":      data["html_url"],
             "depth":    context["depth"],
             "body":     data.get("message", ""),
-            "file_path": f"discussions/{data['id']}.html",      
+            "raw_file_path": f"discussions/{data['id']}.html",      
         }
 
 class ModuleHandler(ContentHandler):
@@ -320,14 +320,14 @@ class FileHandler(ContentHandler):
             "url":      data["url"],
             "depth":    context["depth"]
         }
-        file_data["file_path"] = f"files/{data['id']}.{file_data['extension']}"
+        file_data["raw_file_path"] = f"files/{data['id']}.{file_data['extension']}"
         return file_data
     
     def save(self, parsed):
         self.storage.write_json(parsed)
         # Download the actual file
         if parsed.get("url"):
-            self.storage.download_file(parsed["url"], parsed["file_path"])
+            self.storage.download_file(parsed["url"], parsed["raw_file_path"])
         else:
             self.logger.warning(f"No URL for file {parsed['id']}, skipping download.")
 
@@ -350,7 +350,7 @@ class classicQuizHandler(ContentHandler):
             "depth":    context["depth"],
             "url":      data["html_url"],
             "body":   data.get("description", ""),
-            "file_path": f"quizzes/{data['id']}.html",
+            "raw_file_path": f"quizzes/{data['id']}.html",
         }
 
 # The factory:
@@ -368,7 +368,7 @@ class HandlerFactory:
         "quiz":              classicQuizHandler,
         "new_quiz":          NewQuizHandler,
         "external_link":     ExternalLinkHandler,
-        "announcement":      AnnoucementHandler,
+        "announcement":      AnnouncementHandler,
         # files, external links,
     }
 
