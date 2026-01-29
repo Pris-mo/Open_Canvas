@@ -56,6 +56,22 @@
         "program": "${file}",
         "console": "integratedTerminal",
         "justMyCode": true
-      }      
+      },
+      {
+        "name": "Run Pre Processor",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "${workspaceFolder}/pre_processer/run_conversion.py",
+        "args": [
+          //"${workspaceFolder}/test_files/Accelerating-Sustainability-with-AI-2025.pdf",
+          "${workspaceFolder}/test_files/2011-12_TO_NOW.json",
+          //"${workspaceFolder}/test_files/Anderson 1984.pdf",
+          "${workspaceFolder}/test_files/city-skyline.png",
+
+        ],
+        "envFile": "${workspaceFolder}/.env",
+        "console": "integratedTerminal",
+        "justMyCode": true
+      },      
     ]
   }
