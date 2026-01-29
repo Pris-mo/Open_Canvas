@@ -28,7 +28,13 @@ class Pipeline:
     run_dir: Path
 
     @classmethod
-    def from_config(cls, config: AppConfig, *, run_dir: Optional[Path] = None):
+    def from_config(
+        cls,
+        config: AppConfig,
+        *,
+        run_dir: Optional[Path] = None,
+        source_root: Optional[Path] = None,   # NEW
+    ):
         if run_dir is None:
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             run_dir = config.runs_root / ts
@@ -56,7 +62,7 @@ class Pipeline:
             force_llm_for_pptx=config.force_llm_for_pptx,
         )
 
-        md_sink = MarkdownSink(out_dir=md_dir, logger=logger)
+        md_sink = MarkdownSink(out_dir=md_dir, logger=logger, source_root=source_root)
         jsonl_sink = JsonlSink(out_path=ledger_path, logger=logger)
 
         return cls(

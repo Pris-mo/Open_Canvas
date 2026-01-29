@@ -63,10 +63,12 @@
         "request": "launch",
         "program": "${workspaceFolder}/pre_processer/run_conversion.py",
         "args": [
+          "--source-root", "${workspaceFolder}/canvas_crawler/output/3376",
+          "${workspaceFolder}/canvas_crawler/output/3376/pages",
           //"${workspaceFolder}/test_files/Accelerating-Sustainability-with-AI-2025.pdf",
           //"${workspaceFolder}/test_files/Anderson 1984.pdf",
           //"${workspaceFolder}/test_files/city-skyline.png",
-          "${workspaceFolder}/test_files"
+          //"${workspaceFolder}/test_files"
         ],
         "envFile": "${workspaceFolder}/.env",
         "console": "integratedTerminal",

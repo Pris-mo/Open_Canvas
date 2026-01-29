@@ -18,6 +18,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--env", default=None, help="Path to .env file (optional).")
     p.add_argument("--runs-root", default="runs", help="Directory for run outputs.")
     p.add_argument("paths", nargs="*", help="Files to convert.")
+    p.add_argument("--run-dir", default=None, help="Explicit run directory (overrides timestamped runs).")
+    p.add_argument(
+        "--source-root",
+        default=None,
+        help="Root directory to mirror subfolders under markdown/. "
+             "Example: --source-root runs/output/3376",
+    )
     return p.parse_args()
 
 def expand_paths(paths: List[str]) -> List[str]:
@@ -25,13 +32,13 @@ def expand_paths(paths: List[str]) -> List[str]:
 
     for p in paths:
         path = Path(p)
-        if path.is_dir():
-            for child in path.iterdir():
-                if child.is_file():
-                    expanded.append(str(child))
-        else:
-            expanded.append(str(path))
 
+        if path.is_dir():
+            for child in path.rglob("*"):
+                if child.is_file():
+                    expanded.append(str(child.resolve()))  
+        else:
+            expanded.append(str(path.resolve()))          
     return expanded
 
 
@@ -57,7 +64,11 @@ def main() -> int:
         print("No input paths provided.")
         return 2
 
-    pipeline = Pipeline.from_config(cfg)
+    pipeline = Pipeline.from_config(
+        cfg,
+        run_dir=Path(args.run_dir).resolve() if args.run_dir else None,
+        source_root=Path(args.source_root).resolve() if args.source_root else None,
+    )
     expanded_paths = expand_paths(args.paths)
     if not expanded_paths:
         print("No files found in provided paths.")
