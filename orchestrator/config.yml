@@ -1,0 +1,34 @@
+run:
+  runs_root: "runs"              
+  name: null                     # optional; if null, orchestrator uses timestamp
+
+canvas:
+  crawler_script: "canvas_crawler/canvas_crawler.py"
+  canvas_url: "https://learn.canvas.net"
+  course_id: 3376
+  depth_limit: 15
+  verbose: true
+
+conversion:
+  script: "pre_processer/run_conversion.py"
+  model: "gpt-4o"
+  enable_llm: true
+  verbose: true
+  source_root_mode: "course_root"
+  skip_dirnames:
+    - "json_output"
+
+bridge:
+  json_output_dirname: "json_output"
+  raw_key: "raw_file_path"
+  legacy_key: "file_path"
+  md_key: "md_file_path"
+  md_value_mode: "relative_to_master_run"   # store paths like processor/markdown/pages/...
+  atomic_write: true
+
+# Future placeholders
+chunking:
+  enabled: false
+
+upload:
+  enabled: false
