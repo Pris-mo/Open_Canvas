@@ -10,7 +10,7 @@ from .config import AppConfig
 from .logging_utils import setup_logging
 from .policies import FallbackPolicy
 from .schema import ConversionMode, ConversionResult, Outcome, RunSummary
-from .converters.markitdown_converter import MarkItDownConverter
+from .converters.docling_converter import DoclingConverter
 from .sinks.markdown_sink import MarkdownSink
 from .sinks.jsonl_sink import JsonlSink
 
@@ -19,7 +19,7 @@ from .sinks.jsonl_sink import JsonlSink
 class Pipeline:
     config: AppConfig
     logger: logging.Logger
-    converter: MarkItDownConverter
+    converter: DoclingConverter
     policy: FallbackPolicy
     md_sink: MarkdownSink
     jsonl_sink: JsonlSink
@@ -44,12 +44,7 @@ class Pipeline:
         logger = setup_logging("fileConversion", config.verbose, logs_dir)
         logger.info("Run directory → %s", run_dir)
 
-        converter = MarkItDownConverter(
-            llm_api_key=config.get_openai_api_key(),
-            llm_model=config.llm_model,
-            enable_llm=config.enable_llm_fallback,
-            logger=logger,
-        )
+        converter = DoclingConverter(logger=logger)
 
         policy = FallbackPolicy(
             enable_llm_fallback=config.enable_llm_fallback,
