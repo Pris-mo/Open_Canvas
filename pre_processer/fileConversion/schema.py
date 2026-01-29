@@ -6,9 +6,20 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
+class Engine(str, Enum):
+    DOCLING = "docling"
+    MARKITDOWN = "markitdown"
+
+
 class ConversionMode(str, Enum):
     LEAN = "lean"
     LLM = "llm"
+
+
+@dataclass(frozen=True)
+class AttemptStep:
+    engine: Engine
+    mode: ConversionMode
 
 
 class Outcome(str, Enum):
@@ -22,6 +33,7 @@ class ConversionResult:
     source_path: str
     mode_used: ConversionMode
     outcome: Outcome
+    engine_used: Engine
 
     # Core output
     markdown: str = ""

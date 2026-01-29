@@ -4,34 +4,38 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
-from .schema import ConversionMode, ConversionResult, Outcome
+from .schema import AttemptStep, ConversionMode, Engine, ConversionResult, Outcome
 
 
 @dataclass(frozen=True)
 class FallbackPolicy:
-    """
-    Encodes which modes to try and when to retry.
-    Keep this logic centralized so it doesn't leak into pipeline/sinks.
-    """
-    enable_llm_fallback: bool = True
-    force_llm_for_pptx: bool = True
+    enable_markitdown_llm: bool = True
+    force_llm_for_pptx: bool = False  # optional, keep if you still want it
 
-    def modes_to_try(self, source_path: str) -> List[ConversionMode]:
-        ext = Path(source_path).suffix.lower()
+    def steps_to_try(self, path: str) -> List[AttemptStep]:
+        p = Path(path)
+        ext = p.suffix.lower()
 
-        # Force LLM for PPTX if configured
+        # If you still want pptx to force LLM for MarkItDown (optional)
         if self.force_llm_for_pptx and ext == ".pptx":
-            return [ConversionMode.LLM]
+            if self.enable_markitdown_llm:
+                return [
+                    AttemptStep(Engine.DOCLING, ConversionMode.LEAN),
+                    AttemptStep(Engine.MARKITDOWN, ConversionMode.LLM),
+                ]
+            return [
+                AttemptStep(Engine.DOCLING, ConversionMode.LEAN),
+                AttemptStep(Engine.MARKITDOWN, ConversionMode.LEAN),
+            ]
 
-        # If LLM fallback is enabled, try lean first then LLM
-        if self.enable_llm_fallback:
-            return [ConversionMode.LEAN, ConversionMode.LLM]
+        steps = [
+            AttemptStep(Engine.DOCLING, ConversionMode.LEAN),
+            AttemptStep(Engine.MARKITDOWN, ConversionMode.LEAN),
+        ]
+        if self.enable_markitdown_llm:
+            steps.append(AttemptStep(Engine.MARKITDOWN, ConversionMode.LLM))
+        return steps
 
-        # Always try lean 
-        return [ConversionMode.LEAN]
-
-    def should_retry(self, result: ConversionResult) -> bool:
-        # Retry on blank or failed results if LLM is available and we weren't already using it
-        if result.mode_used == ConversionMode.LLM:
-            return False
-        return result.outcome in (Outcome.BLANK, Outcome.FAILED)
+    def should_continue(self, result: ConversionResult) -> bool:
+        # Continue trying fallbacks if we didn't get OK.
+        return result.outcome != Outcome.OK

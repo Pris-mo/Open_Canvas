@@ -1,0 +1,2 @@
+- Set a timeout for large files. I.e Anderson PDF OCR takes forever, may want to gaurd against this
+- Add zip file support

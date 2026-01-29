@@ -11,8 +11,9 @@ try:
     from openai import OpenAI
 except Exception:  # pragma: no cover
     OpenAI = None  # type: ignore
+    
+from ..schema import Engine, ConversionMode, ConversionResult, Outcome
 
-from ..schema import ConversionMode, ConversionResult, Outcome
 
 
 class MarkItDownConverter:
@@ -93,7 +94,8 @@ class MarkItDownConverter:
 
             return ConversionResult(
                 source_path=str(p),
-                mode_used=mode,
+                mode_used=mode,                
+                engine_used=Engine.MARKITDOWN,
                 outcome=outcome,
                 markdown=markdown,
                 meta=meta,
@@ -107,7 +109,8 @@ class MarkItDownConverter:
 
             return ConversionResult(
                 source_path=str(p),
-                mode_used=mode,
+                mode_used=mode,                
+                engine_used=Engine.MARKITDOWN,
                 outcome=Outcome.FAILED,
                 markdown="",
                 error=str(e),

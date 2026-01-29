@@ -20,6 +20,20 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("paths", nargs="*", help="Files to convert.")
     return p.parse_args()
 
+def expand_paths(paths: List[str]) -> List[str]:
+    expanded: List[str] = []
+
+    for p in paths:
+        path = Path(p)
+        if path.is_dir():
+            for child in path.iterdir():
+                if child.is_file():
+                    expanded.append(str(child))
+        else:
+            expanded.append(str(path))
+
+    return expanded
+
 
 def main() -> int:
     args = parse_args()
@@ -44,7 +58,13 @@ def main() -> int:
         return 2
 
     pipeline = Pipeline.from_config(cfg)
-    summary = pipeline.run(args.paths)
+    expanded_paths = expand_paths(args.paths)
+    if not expanded_paths:
+        print("No files found in provided paths.")
+        return 2
+    
+    print(f"Discovered {len(expanded_paths)} file(s) to process.")
+    summary = pipeline.run(expanded_paths)
     print(f"Summary: {summary.to_dict()}")
     return 0
 

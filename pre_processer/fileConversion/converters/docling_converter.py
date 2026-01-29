@@ -9,7 +9,7 @@ import logging
 
 from docling.document_converter import DocumentConverter  # main entry point :contentReference[oaicite:3]{index=3}
 
-from ..schema import ConversionMode, ConversionResult, Outcome
+from ..schema import ConversionMode, ConversionResult, Engine, Outcome
 
 
 @dataclass
@@ -49,6 +49,7 @@ class DoclingConverter:
             return ConversionResult(
                 source_path=str(p),
                 mode_used=mode,  # keep as-is for now
+                engine_used=Engine.DOCLING,
                 outcome=outcome,
                 markdown=markdown or "",
                 error=None,
@@ -68,6 +69,7 @@ class DoclingConverter:
             return ConversionResult(
                 source_path=str(p),
                 mode_used=mode,
+                engine_used=Engine.DOCLING,
                 outcome=Outcome.FAILED,
                 markdown="",
                 error=str(e),
