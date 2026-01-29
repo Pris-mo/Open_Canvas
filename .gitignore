@@ -8,3 +8,7 @@ canvas_crawler/output/**
 logs/
 pre_processer/tmp.py
 pre_processer/test_files/
+
+/trash/**
+/test_files/**
+/runs/**
