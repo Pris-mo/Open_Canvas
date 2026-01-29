@@ -73,6 +73,22 @@
         "envFile": "${workspaceFolder}/.env",
         "console": "integratedTerminal",
         "justMyCode": true
-      },      
+      },
+      {
+        "name": "Run chunker",
+        "type": "debugpy",
+        "request": "launch",
+        "module": "chunker.cli",
+        "args": [
+          "--master-run", "${workspaceFolder}/runs/20260129_163239",
+          "--json-output", "${workspaceFolder}/runs/20260129_163239/canvas/output/3376/json_output",
+          "--include-separate-metadata",
+          "--write-chunk-files"
+        ],
+        "envFile": "${workspaceFolder}/.env",
+        "console": "integratedTerminal",
+        "justMyCode": true,
+        "cwd": "${workspaceFolder}"
+      },            
     ]
   }
