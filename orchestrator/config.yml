@@ -17,6 +17,7 @@ conversion:
   source_root_mode: "course_root"
   skip_dirnames:
     - "json_output"
+    - "locked"
 
 bridge:
   json_output_dirname: "json_output"
@@ -28,7 +29,8 @@ bridge:
 
 # Future placeholders
 chunking:
-  enabled: false
+  enabled: true
+  write_chunk_files: true
 
 upload:
   enabled: false
