@@ -89,9 +89,9 @@ def run_crawler(cfg: dict[str, Any], repo_root: Path, master_run_dir: Path) -> N
     env = os.environ.copy()
     _run(cmd, cwd=repo_root, env=env)
 
-def _should_skip(path: Path, skip_dirnames: set[str]) -> bool:
-    # skip if any component in the path matches a skip directory name
-    return any(part in skip_dirnames for part in path.parts)
+def _should_skip(path: Path, root: Path, skip_dirnames: set[str]) -> bool:
+    rel = path.relative_to(root)
+    return any(part in skip_dirnames for part in rel.parts)
 
 
 def _discover_files_under(root: Path, *, skip_dirnames: set[str]) -> list[Path]:
@@ -103,7 +103,7 @@ def _discover_files_under(root: Path, *, skip_dirnames: set[str]) -> list[Path]:
     for p in root.rglob("*"):
         if not p.is_file():
             continue
-        if _should_skip(p, skip_dirnames):
+        if _should_skip(p, root, skip_dirnames):
             continue
         files.append(p.resolve())
     return files
@@ -190,6 +190,38 @@ def update_metadata(cfg: dict[str, Any], ctx: RunContext) -> Tuple[int, int]:
 
     return updated, skipped
 
+def run_chunking(cfg: dict[str, Any], repo_root: Path, ctx: RunContext, cfg_path: Path) -> None:
+    ch = cfg.get("chunking", {}) or {}
+    if not ch.get("enabled", False):
+        print("Chunking disabled (chunking.enabled=false). Skipping.")
+        return
+
+    python = ch.get("python") or shutil.which("python") or "python"
+
+    cmd = [
+        python,
+        "-m", "chunker.cli",
+        "--master-run", str(ctx.master_run_dir),
+        "--json-output", str(ctx.json_output_dir),
+    ]
+
+    course_id = cfg.get("canvas", {}).get("course_id")
+    if course_id is not None:
+        cmd += ["--course-id", str(course_id)]
+
+    if ch.get("include_separate_metadata", False):
+        cmd.append("--include-separate-metadata")
+
+    if ch.get("write_chunk_files", False):
+        cmd.append("--write-chunk-files")
+
+    env = os.environ.copy()
+    env["PIPELINE_CONFIG"] = str(cfg_path)
+
+    _run(cmd, cwd=repo_root, env=env)
+
+
+
 
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[1]
@@ -219,6 +251,10 @@ def main() -> int:
 
     # 3) Update metadata
     updated, skipped = update_metadata(cfg, ctx)
+
+    # 4) Chunking
+    run_chunking(cfg, repo_root, ctx, cfg_path)
+
 
     summary = {
         "master_run_dir": str(master_run_dir),
