@@ -116,13 +116,13 @@
     }
   
 ,{
-        "name": "Run Orchestrator (CLI) - Env File + Frontmatter + Chunking",
+        "name": "Run Orchestrator (CLI) - Env File",
         "type": "debugpy",
         "request": "launch",
         "module": "orchestrator.cli",
         "args": [
-          "--course-url", "https://learn.canvas.net/courses/3376/pages/welcome",
-          "--env-file", "${workspaceFolder}/.env",
+          "--course-url", "https://learn.canvas.net/courses/2251/",
+          "--env-file", "${workspaceFolder}/trash/.env",
         ],
         "console": "integratedTerminal",
         "justMyCode": true,
@@ -134,7 +134,7 @@
         "module": "orchestrator.cli",
         "args": [
           "--course-url", "https://learn.canvas.net/courses/3376",
-          "--env-file", "${workspaceFolder}/.env",
+          "--env-file", "${workspaceFolder}/trash/.env",
           "--include", "pages,modules"
         ],
         "console": "integratedTerminal",
