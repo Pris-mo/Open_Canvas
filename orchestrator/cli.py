@@ -1,101 +1,174 @@
 from __future__ import annotations
 
 import argparse
-import os
+import re
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+from urllib.parse import urlparse
 
-# import your orchestrator module; adjust import to match your file name
-# If your orchestrator file is orchestrator/run_pipeline.py, then:
+# Adjust import path to your orchestrator module filename
+# If your orchestrator lives at orchestrator/run_pipeline.py:
 from orchestrator.run_pipeline import run_pipeline, _load_yaml
 
 
+_ALWAYS_SKIP = {"locked", "json_output"}
+
+
+def _read_env_file(path: Path) -> dict[str, str]:
+    """
+    Minimal .env reader:
+    - Supports KEY=VALUE
+    - Ignores blank lines and comments starting with #
+    - Strips surrounding single/double quotes on values
+    """
+    if not path.exists():
+        raise FileNotFoundError(f".env file not found: {path}")
+
+    out: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        if "=" not in s:
+            continue
+        k, v = s.split("=", 1)
+        k = k.strip()
+        v = v.strip()
+        if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+            v = v[1:-1]
+        out[k] = v
+    return out
+
+
+def _parse_course_url(course_url: str) -> tuple[str, int]:
+    """
+    Returns (base_url, course_id).
+    Requires path containing /courses/<digits>.
+    Accepts deep links: /courses/<id>/pages/..., /modules, etc.
+    """
+    u = urlparse(course_url)
+    if not u.scheme or not u.netloc:
+        raise ValueError(f"Invalid URL: {course_url}")
+
+    # Find /courses/<id> anywhere in the path
+    m = re.search(r"/courses/(\d+)(?:/|$)", u.path)
+    if not m:
+        raise ValueError(
+            "Course URL must include '/courses/<id>'. Example: https://learn.canvas.net/courses/3376"
+        )
+
+    course_id = int(m.group(1))
+    base_url = f"{u.scheme}://{u.netloc}"
+    return base_url, course_id
+
+
+def _csv_set(s: Optional[str]) -> Optional[set[str]]:
+    if not s:
+        return None
+    parts = [p.strip() for p in s.split(",")]
+    out = {p for p in parts if p}
+    return out or None
+
+
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Run the Canvas -> Markdown -> Chunk pipeline (CLI).")
+    p = argparse.ArgumentParser(description="Canvas -> Markdown -> Chunk orchestrator")
 
-    # Optional defaults file (lets you keep YAML as fallback)
-    p.add_argument("--config", default=None, help="Optional YAML config for defaults.")
+    mode = p.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--config", help="YAML config path (YAML mode).")
+    mode.add_argument("--course-url", help="Canvas course URL (CLI mode).")
 
-    # Run settings
-    p.add_argument("--runs-root", default="runs", help="Runs root directory (relative to repo root).")
-    p.add_argument("--run-name", default=None, help="Run name; default is timestamp.")
+    # CLI-mode auth
+    p.add_argument("--canvas-token", default=None, help="Canvas API token (CLI mode).")
+    p.add_argument("--env-file", default=None, help="Path to .env file (CLI mode).")
 
-    # Canvas crawler
-    p.add_argument("--course-id", required=True, help="Canvas course ID.")
-    p.add_argument("--canvas-url", required=True, help="Canvas base URL (e.g. https://learn.canvas.net).")
-    p.add_argument("--crawler-script", default="canvas_crawler/canvas_crawler.py")
-    p.add_argument("--depth-limit", type=int, default=15)
-    p.add_argument("--crawler-verbose", action="store_true")
-
-    # Conversion
-    p.add_argument("--conversion-script", default="pre_processer/run_conversion.py")
-    p.add_argument("--model", default="gpt-4o")
-    p.add_argument("--enable-llm", action="store_true", default=False)
-    p.add_argument("--no-llm", action="store_true", default=False)
-    p.add_argument("--conversion-verbose", action="store_true")
-    p.add_argument("--skip-dirname", action="append", default=[], help="Repeatable. Example: --skip-dirname locked")
-
-    # Bridge
-    p.add_argument("--json-output-dirname", default="json_output")
-    p.add_argument("--raw-key", default="raw_file_path")
-    p.add_argument("--legacy-key", default="file_path")
-    p.add_argument("--md-key", default="md_file_path")
+    # URL/base overrides (CLI mode)
     p.add_argument(
-        "--md-value-mode",
-        choices=["relative_to_master_run", "relative_to_repo", "absolute"],
-        default="relative_to_master_run",
+        "--api-base-url",
+        default=None,
+        help="Optional override for Canvas API base URL (rare UI/API host mismatch).",
     )
-    p.add_argument("--atomic-write", action="store_true", default=True)
-    p.add_argument("--no-atomic-write", action="store_true", default=False)
 
-    # Chunking
-    p.add_argument("--chunking-enabled", action="store_true", default=False)
-    p.add_argument("--write-chunk-files", action="store_true", default=False)
+    # Optional: OpenAI
+    p.add_argument("--openai-api-key", default=None, help="OpenAI API key (CLI mode).")
+
+    # Behavior knobs
+    p.add_argument("--include", default=None, help="Comma-separated top-level folders to convert/chunk.")
+    p.add_argument("--include-frontmatter", action="store_true", help="Prefix each chunk with metadata frontmatter.")
+    p.add_argument("--depth-limit", type=int, default=10, help="Canvas crawl depth limit (CLI mode).")
+    p.add_argument("--model", default="gpt-4o", help="LLM model for conversion fallback.")
+    p.add_argument("--runs-root", default="runs", help="Runs root directory (relative to repo root).")
+    p.add_argument("--run-name", default=None, help="Optional run name; default is timestamp.")
+
+    # Verbose flags
+    p.add_argument("--crawler-verbose", action="store_true")
+    p.add_argument("--conversion-verbose", action="store_true")
+
+    # Scripts (allow override without YAML)
+    p.add_argument("--crawler-script", default="canvas_crawler/canvas_crawler.py")
+    p.add_argument("--conversion-script", default="pre_processer/run_conversion.py")
+
+    # Chunking flags
+    p.add_argument("--chunking", dest="chunking_enabled", action="store_true", default=True)
+    p.add_argument("--no-chunking", dest="chunking_enabled", action="store_false")
+    p.add_argument(
+        "--write-chunk-files",
+        dest="write_chunk_files",
+        action="store_true",
+        default=True,
+        help="Write chunk files to disk (default: enabled).",
+    )
+    p.add_argument(
+        "--no-write-chunk-files",
+        dest="write_chunk_files",
+        action="store_false",
+        help="Disable writing chunk files to disk.",
+    )
+
 
     return p.parse_args()
 
 
-def deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Shallow+recursive merge for dicts. override wins.
-    """
-    out = dict(base)
-    for k, v in override.items():
-        if isinstance(v, dict) and isinstance(out.get(k), dict):
-            out[k] = deep_merge(out[k], v)
-        else:
-            out[k] = v
-    return out
+def build_cfg_from_cli(args: argparse.Namespace, repo_root: Path) -> dict[str, Any]:
+    base_url, course_id = _parse_course_url(args.course_url)
 
+    # Strict: no environment-variable fallback in CLI mode.
+    env_data: dict[str, str] = {}
+    if args.env_file:
+        env_path = Path(args.env_file).expanduser()
+        if not env_path.is_absolute():
+            env_path = (repo_root / env_path).resolve()
+        env_data = _read_env_file(env_path)
 
-def build_cfg_from_args(args: argparse.Namespace) -> Dict[str, Any]:
-    # LLM flag logic:
-    # - If user explicitly sets --no-llm, disable
-    # - Else if user sets --enable-llm, enable
-    # - Else leave default False (unless overridden by YAML defaults)
-    enable_llm = False
-    if args.no_llm:
-        enable_llm = False
-    elif args.enable_llm:
-        enable_llm = True
+    canvas_token = args.canvas_token or env_data.get("CANVAS_TOKEN")
+    if not canvas_token:
+        raise ValueError(
+            "Canvas token required in CLI mode. Provide --canvas-token OR --env-file containing CANVAS_TOKEN."
+        )
 
-    atomic_write = True
-    if args.no_atomic_write:
-        atomic_write = False
-    elif args.atomic_write:
-        atomic_write = True
+    openai_key = args.openai_api_key or env_data.get("OPENAI_API_KEY")
+    enable_llm = bool(openai_key)
 
-    cfg: Dict[str, Any] = {
+    # In CLI mode, canvas_url is the API base URL
+    canvas_api_url = args.api_base_url or base_url
+
+    include_set = _csv_set(args.include)
+    if include_set is not None:
+        include_set -= _ALWAYS_SKIP  # never allow these
+        if not include_set:
+            raise ValueError("After removing locked/json_output, --include is empty. Provide at least one folder.")
+
+    cfg: dict[str, Any] = {
         "run": {
             "runs_root": args.runs_root,
             "name": args.run_name,
         },
         "canvas": {
             "crawler_script": args.crawler_script,
-            "canvas_url": args.canvas_url,
-            "course_id": int(args.course_id) if str(args.course_id).isdigit() else args.course_id,
+            "canvas_url": canvas_api_url,
+            "course_id": course_id,
             "depth_limit": args.depth_limit,
             "verbose": bool(args.crawler_verbose),
+            "token": canvas_token,
         },
         "conversion": {
             "script": args.conversion_script,
@@ -103,48 +176,65 @@ def build_cfg_from_args(args: argparse.Namespace) -> Dict[str, Any]:
             "enable_llm": enable_llm,
             "verbose": bool(args.conversion_verbose),
             "source_root_mode": "course_root",
-            "skip_dirnames": args.skip_dirname or [],
+            # always skip these (enforced in orchestrator too)
+            "skip_dirnames": sorted(_ALWAYS_SKIP),
+            # optional include filter (top-level folders)
+            "include_dirnames": sorted(include_set) if include_set is not None else None,
         },
         "bridge": {
-            "json_output_dirname": args.json_output_dirname,
-            "raw_key": args.raw_key,
-            "legacy_key": args.legacy_key,
-            "md_key": args.md_key,
-            "md_value_mode": args.md_value_mode,
-            "atomic_write": atomic_write,
+            "json_output_dirname": "json_output",
+            "raw_key": "raw_file_path",
+            "legacy_key": "file_path",
+            "md_key": "md_file_path",
+            "md_value_mode": "relative_to_master_run",
+            "atomic_write": True,
         },
         "chunking": {
             "enabled": bool(args.chunking_enabled),
             "write_chunk_files": bool(args.write_chunk_files),
+            # pass through; your chunker can read PIPELINE_CONFIG or a new env var / CLI arg
+            "include_frontmatter": bool(args.include_frontmatter),
         },
         "upload": {"enabled": False},
+        # stash tokens for your own future use if desired
+        "_secrets": {
+            "canvas_token_present": True,
+            "openai_key_present": bool(openai_key),
+        },
     }
+
+    # Inject secrets into env for subprocesses (crawler/conversion/chunker).
+    # NOTE: Your orchestrator currently uses os.environ.copy() inside each stage,
+    # so setting these in os.environ here is the easiest way to pass them.
+    import os
+    os.environ["CANVAS_TOKEN"] = canvas_token
+    if openai_key:
+        os.environ["OPENAI_API_KEY"] = openai_key
+
+    # Optional: let chunker know frontmatter behavior if you want an env flag today
+    if args.include_frontmatter:
+        os.environ["PIPELINE_INCLUDE_FRONTMATTER"] = "1"
+    else:
+        os.environ.pop("PIPELINE_INCLUDE_FRONTMATTER", None)
+
     return cfg
 
 
 def main() -> int:
     args = parse_args()
-
     repo_root = Path(__file__).resolve().parents[1]
 
-    # Optional YAML defaults
-    cfg_path = None
-    base_cfg: Dict[str, Any] = {}
+    # YAML mode
     if args.config:
-        cfg_path = (Path(args.config).expanduser().resolve())
-        base_cfg = _load_yaml(cfg_path)
+        cfg_path = Path(args.config).expanduser()
+        if not cfg_path.is_absolute():
+            cfg_path = (repo_root / cfg_path).resolve()
+        cfg = _load_yaml(cfg_path)
+        return run_pipeline(cfg, repo_root, cfg_path)
 
-    cli_cfg = build_cfg_from_args(args)
-    cfg = deep_merge(base_cfg, cli_cfg) if base_cfg else cli_cfg
-
-    # If user didn’t specify either enable/disable, and YAML provided enable_llm, keep it.
-    # (Our build_cfg sets enable_llm False by default, so this merge matters.)
-
-    # Also: let downstream tools know where config came from if you still want that behavior
-    if cfg_path:
-        os.environ["PIPELINE_CONFIG"] = str(cfg_path)
-
-    return run_pipeline(cfg, repo_root, cfg_path)
+    # CLI mode (no YAML consideration)
+    cfg = build_cfg_from_cli(args, repo_root)
+    return run_pipeline(cfg, repo_root, cfg_path=None)
 
 
 if __name__ == "__main__":

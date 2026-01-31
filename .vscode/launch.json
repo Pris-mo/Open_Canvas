@@ -13,7 +13,12 @@
         "type": "promptString",
         "description": "Canvas base URL",
         "default": "https://learn.canvas.net"
-      }
+      },{
+      "id": "canvasToken",
+      "type": "promptString",
+      "description": "Enter Canvas API Token",
+      "password": true
+    }
     ],
     "configurations": [
       {
@@ -89,29 +94,50 @@
         "console": "integratedTerminal",
         "justMyCode": true,
         "cwd": "${workspaceFolder}"
-        },      {
-        "name": "Run Orchestrator (CLI)",
+        },     
+    {
+      "name": "Run Orchestrator (CLI) - Prompt Token",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "orchestrator.cli",
+      "args": [
+        "--course-url", "https://learn.canvas.net/courses/3376",
+        "--canvas-token", "${input:canvasToken}"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}"
+    }
+  
+,{
+        "name": "Run Orchestrator (CLI) - Env File + Frontmatter + Chunking",
         "type": "debugpy",
         "request": "launch",
         "module": "orchestrator.cli",
         "args": [
-          "--course-id", "3376",
-          "--canvas-url", "https://learn.canvas.net",
-          "--runs-root", "runs",
-          "--crawler-verbose",
-          "--conversion-verbose",
-          "--enable-llm",
-          "--model", "gpt-4o",
-          "--skip-dirname", "json_output",
-          "--skip-dirname", "locked",
+          "--course-url", "https://learn.canvas.net/courses/3376/pages/welcome",
+          "--env-file", "${workspaceFolder}/.env",
+          "--include-frontmatter",
           "--chunking-enabled",
           "--write-chunk-files"
         ],
-        "envFile": "${workspaceFolder}/.env",
         "console": "integratedTerminal",
         "justMyCode": true,
         "cwd": "${workspaceFolder}"
-      }
+      },{
+        "name": "Run Orchestrator (CLI) - Include pages,modules",
+        "type": "debugpy",
+        "request": "launch",
+        "module": "orchestrator.cli",
+        "args": [
+          "--course-url", "https://learn.canvas.net/courses/3376",
+          "--env-file", "${workspaceFolder}/.env",
+          "--include", "pages,modules"
+        ],
+        "console": "integratedTerminal",
+        "justMyCode": true,
+        "cwd": "${workspaceFolder}"
+      }, 
       
     ]
   }
