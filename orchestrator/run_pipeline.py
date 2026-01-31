@@ -83,6 +83,12 @@ def run_crawler(cfg: dict[str, Any], repo_root: Path, master_run_dir: Path) -> N
         "--depth-limit", str(canvas.get("depth_limit", 15)),
         "--canvas-url", str(canvas["canvas_url"]),
     ]
+
+    # ✅ pass token explicitly if present
+    token = canvas.get("token")
+    if token:
+        cmd += ["--token", str(token)]
+
     if canvas.get("verbose", False):
         cmd.append("--verbose")
 
@@ -94,10 +100,19 @@ def _should_skip(path: Path, root: Path, skip_dirnames: set[str]) -> bool:
     return any(part in skip_dirnames for part in rel.parts)
 
 
-def _discover_files_under(root: Path, *, skip_dirnames: set[str]) -> list[Path]:
+def _discover_files_under(
+    root: Path,
+    *,
+    skip_dirnames: set[str],
+    include_dirnames: set[str] | None = None,
+) -> list[Path]:
     """
     Recursively discover files under root, excluding any files that live inside
     directories named in skip_dirnames.
+
+    If include_dirnames is provided, only include files whose *top-level* folder
+    (relative to root) is in include_dirnames. Root-level files (no parent dir)
+    are always included.
     """
     files: list[Path] = []
     for p in root.rglob("*"):
@@ -105,8 +120,23 @@ def _discover_files_under(root: Path, *, skip_dirnames: set[str]) -> list[Path]:
             continue
         if _should_skip(p, root, skip_dirnames):
             continue
+
+        rel = p.relative_to(root)
+
+        # Root-level files are included by default
+        if len(rel.parts) == 1:
+            files.append(p.resolve())
+            continue
+
+        top = rel.parts[0]
+        if include_dirnames is not None:
+            if top not in include_dirnames:
+                continue
+
         files.append(p.resolve())
+
     return files
+
 
 def run_conversion(cfg: dict[str, Any], repo_root: Path, ctx: RunContext) -> None:
     conv = cfg["conversion"]
@@ -118,12 +148,28 @@ def run_conversion(cfg: dict[str, Any], repo_root: Path, ctx: RunContext) -> Non
     # Mirror relative to course root so markdown becomes markdown/pages/..., etc.
     source_root = ctx.course_root
 
-    skip = set(conv.get("skip_dirnames", []))
+    # Always skip these
+    skip = set(conv.get("skip_dirnames", [])) | {"locked", "json_output"}
 
-    input_files = _discover_files_under(ctx.course_root, skip_dirnames=skip)
+    # Optional include list
+    include_dirnames: set[str] | None = None
+    raw_include = conv.get("include_dirnames")
+    if raw_include:
+        include_dirnames = {str(x).strip() for x in raw_include if str(x).strip()}
+        # never allow these even if user includes them
+        include_dirnames -= {"locked", "json_output"}
+
+    input_files = _discover_files_under(
+        ctx.course_root,
+        skip_dirnames=skip,
+        include_dirnames=include_dirnames,
+    )
 
     if not input_files:
-        print(f"No files discovered under {ctx.course_root} after skipping {sorted(skip)}")
+        msg = f"No files discovered under {ctx.course_root} after skipping {sorted(skip)}"
+        if include_dirnames is not None:
+            msg += f" and including only {sorted(include_dirnames)}"
+        print(msg)
         return
 
     cmd = [
@@ -144,6 +190,7 @@ def run_conversion(cfg: dict[str, Any], repo_root: Path, ctx: RunContext) -> Non
 
     env = os.environ.copy()
     _run(cmd, cwd=repo_root, env=env)
+
 
 def update_metadata(cfg: dict[str, Any], ctx: RunContext) -> Tuple[int, int]:
     bridge = cfg["bridge"]
@@ -220,14 +267,7 @@ def run_chunking(cfg: dict[str, Any], repo_root: Path, ctx: RunContext, cfg_path
 
     _run(cmd, cwd=repo_root, env=env)
 
-
-
-
-def main() -> int:
-    repo_root = Path(__file__).resolve().parents[1]
-    cfg_path = Path(os.environ.get("PIPELINE_CONFIG", repo_root / "orchestrator" / "config.yml"))
-    cfg = _load_yaml(cfg_path)
-
+def run_pipeline(cfg: dict[str, Any], repo_root: Path, cfg_path: Path | None = None) -> int:
     runs_root = (repo_root / cfg["run"]["runs_root"]).resolve()
     runs_root.mkdir(parents=True, exist_ok=True)
 
@@ -235,11 +275,17 @@ def main() -> int:
     master_run_dir = (runs_root / name).resolve()
     (master_run_dir / "orchestration").mkdir(parents=True, exist_ok=True)
 
-    # Copy config used (DON'T move it)
-    (master_run_dir / "orchestration" / "config_used.yml").write_text(
-        cfg_path.read_text(encoding="utf-8"),
-        encoding="utf-8"
-    )
+    # Copy config used if we have a cfg_path (YAML). Otherwise write JSON snapshot.
+    if cfg_path and cfg_path.exists():
+        (master_run_dir / "orchestration" / "config_used.yml").write_text(
+            cfg_path.read_text(encoding="utf-8"),
+            encoding="utf-8"
+        )
+    else:
+        (master_run_dir / "orchestration" / "config_used.json").write_text(
+            json.dumps(cfg, ensure_ascii=False, indent=2),
+            encoding="utf-8"
+        )
 
     ctx = build_context(cfg, repo_root, master_run_dir)
 
@@ -253,8 +299,7 @@ def main() -> int:
     updated, skipped = update_metadata(cfg, ctx)
 
     # 4) Chunking
-    run_chunking(cfg, repo_root, ctx, cfg_path)
-
+    run_chunking(cfg, repo_root, ctx, cfg_path or (repo_root / "orchestrator" / "config.yml"))
 
     summary = {
         "master_run_dir": str(master_run_dir),
@@ -273,6 +318,15 @@ def main() -> int:
     print(f"\nMaster run dir: {master_run_dir}")
     print(f"Updated JSON files: {updated} | Skipped: {skipped}")
     return 0
+
+
+
+def main() -> int:
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg_path = Path(os.environ.get("PIPELINE_CONFIG", repo_root / "orchestrator" / "config.yml"))
+    cfg = _load_yaml(cfg_path)
+    return run_pipeline(cfg, repo_root, cfg_path)
+
 
 
 if __name__ == "__main__":

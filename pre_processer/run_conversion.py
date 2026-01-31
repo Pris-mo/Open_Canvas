@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 from typing import List
 
@@ -24,6 +25,11 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Root directory to mirror subfolders under markdown/. "
              "Example: --source-root runs/output/3376",
+    )
+    p.add_argument(
+        "--openai-api-key",
+        default=None,
+        help="OpenAI API key (overrides env / .env).",
     )
     return p.parse_args()
 
@@ -53,9 +59,15 @@ def main() -> int:
         if default_env.exists():
             load_dotenv(default_env)
 
+    if args.openai_api_key:
+        os.environ["OPENAI_API_KEY"] = args.openai_api_key
+
+        
+    enable_llm = (not args.no_llm) and bool(os.environ.get("OPENAI_API_KEY"))
+
     cfg = AppConfig(
         runs_root=Path(args.runs_root),
-        enable_llm_fallback=(not args.no_llm),
+        enable_llm_fallback=enable_llm,
         llm_model=args.model,
         verbose=args.verbose,
     )
