@@ -220,14 +220,7 @@ def run_chunking(cfg: dict[str, Any], repo_root: Path, ctx: RunContext, cfg_path
 
     _run(cmd, cwd=repo_root, env=env)
 
-
-
-
-def main() -> int:
-    repo_root = Path(__file__).resolve().parents[1]
-    cfg_path = Path(os.environ.get("PIPELINE_CONFIG", repo_root / "orchestrator" / "config.yml"))
-    cfg = _load_yaml(cfg_path)
-
+def run_pipeline(cfg: dict[str, Any], repo_root: Path, cfg_path: Path | None = None) -> int:
     runs_root = (repo_root / cfg["run"]["runs_root"]).resolve()
     runs_root.mkdir(parents=True, exist_ok=True)
 
@@ -235,11 +228,17 @@ def main() -> int:
     master_run_dir = (runs_root / name).resolve()
     (master_run_dir / "orchestration").mkdir(parents=True, exist_ok=True)
 
-    # Copy config used (DON'T move it)
-    (master_run_dir / "orchestration" / "config_used.yml").write_text(
-        cfg_path.read_text(encoding="utf-8"),
-        encoding="utf-8"
-    )
+    # Copy config used if we have a cfg_path (YAML). Otherwise write JSON snapshot.
+    if cfg_path and cfg_path.exists():
+        (master_run_dir / "orchestration" / "config_used.yml").write_text(
+            cfg_path.read_text(encoding="utf-8"),
+            encoding="utf-8"
+        )
+    else:
+        (master_run_dir / "orchestration" / "config_used.json").write_text(
+            json.dumps(cfg, ensure_ascii=False, indent=2),
+            encoding="utf-8"
+        )
 
     ctx = build_context(cfg, repo_root, master_run_dir)
 
@@ -253,8 +252,7 @@ def main() -> int:
     updated, skipped = update_metadata(cfg, ctx)
 
     # 4) Chunking
-    run_chunking(cfg, repo_root, ctx, cfg_path)
-
+    run_chunking(cfg, repo_root, ctx, cfg_path or (repo_root / "orchestrator" / "config.yml"))
 
     summary = {
         "master_run_dir": str(master_run_dir),
@@ -273,6 +271,15 @@ def main() -> int:
     print(f"\nMaster run dir: {master_run_dir}")
     print(f"Updated JSON files: {updated} | Skipped: {skipped}")
     return 0
+
+
+
+def main() -> int:
+    repo_root = Path(__file__).resolve().parents[1]
+    cfg_path = Path(os.environ.get("PIPELINE_CONFIG", repo_root / "orchestrator" / "config.yml"))
+    cfg = _load_yaml(cfg_path)
+    return run_pipeline(cfg, repo_root, cfg_path)
+
 
 
 if __name__ == "__main__":

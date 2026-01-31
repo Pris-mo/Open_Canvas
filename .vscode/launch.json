@@ -89,6 +89,29 @@
         "console": "integratedTerminal",
         "justMyCode": true,
         "cwd": "${workspaceFolder}"
-      },            
+        },      {
+        "name": "Run Orchestrator (CLI)",
+        "type": "debugpy",
+        "request": "launch",
+        "module": "orchestrator.cli",
+        "args": [
+          "--course-id", "3376",
+          "--canvas-url", "https://learn.canvas.net",
+          "--runs-root", "runs",
+          "--crawler-verbose",
+          "--conversion-verbose",
+          "--enable-llm",
+          "--model", "gpt-4o",
+          "--skip-dirname", "json_output",
+          "--skip-dirname", "locked",
+          "--chunking-enabled",
+          "--write-chunk-files"
+        ],
+        "envFile": "${workspaceFolder}/.env",
+        "console": "integratedTerminal",
+        "justMyCode": true,
+        "cwd": "${workspaceFolder}"
+      }
+      
     ]
   }
