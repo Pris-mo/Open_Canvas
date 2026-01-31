@@ -18,6 +18,11 @@
       "type": "promptString",
       "description": "Enter Canvas API Token",
       "password": true
+    },{
+      "id": "openaiApiKey",
+      "type": "promptString",
+      "description": "Enter OpenAI API Key",
+      "password": true
     }
     ],
     "configurations": [
@@ -101,8 +106,9 @@
       "request": "launch",
       "module": "orchestrator.cli",
       "args": [
-        "--course-url", "https://learn.canvas.net/courses/3376",
-        "--canvas-token", "${input:canvasToken}"
+        "--course-url", "https://learn.canvas.net/courses/2251/modules#module_19051",
+        "--canvas-token", "${input:canvasToken}",
+        "--openai-api-key", "${input:openaiApiKey}"
       ],
       "console": "integratedTerminal",
       "justMyCode": true,
@@ -117,9 +123,6 @@
         "args": [
           "--course-url", "https://learn.canvas.net/courses/3376/pages/welcome",
           "--env-file", "${workspaceFolder}/.env",
-          "--include-frontmatter",
-          "--chunking-enabled",
-          "--write-chunk-files"
         ],
         "console": "integratedTerminal",
         "justMyCode": true,
