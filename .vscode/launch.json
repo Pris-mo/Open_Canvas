@@ -36,7 +36,8 @@
           "--output-dir", "${workspaceFolder}/canvas_crawler",
           "--depth-limit", "15",
           "--canvas-url", "${input:canvasUrl}",
-          "--verbose"
+          "--verbose",
+          "--token", "${input:canvasToken}",
         ],
         "envFile": "${workspaceFolder}/.env",
         "console": "integratedTerminal",

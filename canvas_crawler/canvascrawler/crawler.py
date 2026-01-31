@@ -131,7 +131,7 @@ class CanvasCrawler:
                     # dedicated handler.
                     ct = "new_quiz"
                     item_id = mi["content_id"]
-                elif ct in ("assignment", "discussion","quiz"):
+                elif ct in ("assignment", "discussion","quiz","file"):
                     item_id = mi["content_id"]
                 elif ct in ("externalurl", "externaltool"):
                     ct = "external_link"
