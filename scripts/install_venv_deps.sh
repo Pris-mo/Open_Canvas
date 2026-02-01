@@ -4,9 +4,13 @@ set -eu
 REPO_ROOT="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
 VENV_DIR="${VENV_DIR:-$REPO_ROOT/.venv}"
 VENV_PY="${VENV_PY:-$VENV_DIR/bin/python}"
+PIP_DEFAULT_TIMEOUT="${PIP_DEFAULT_TIMEOUT:-120}"
+PIP_INDEX_URL="${PIP_INDEX_URL:-https://pypi.org/simple}"
 
 echo "Repo: $REPO_ROOT"
 echo "Venv python: $VENV_PY"
+echo "Pip timeout: $PIP_DEFAULT_TIMEOUT"
+echo "Pip index: $PIP_INDEX_URL"
 
 # Create venv if missing (only if VENV_PY doesn't exist)
 if [ ! -x "$VENV_PY" ]; then
