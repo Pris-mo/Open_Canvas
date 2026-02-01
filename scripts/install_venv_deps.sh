@@ -15,7 +15,7 @@ echo "Pip index: $PIP_INDEX_URL"
 # Create venv if missing (only if VENV_PY doesn't exist)
 if [ ! -x "$VENV_PY" ]; then
   echo "Venv not found at $VENV_PY, creating..."
-  python3 -m venv "$VENV_DIR"
+  "$(command -v python3)" -m venv "$VENV_DIR"
   VENV_PY="$VENV_DIR/bin/python"
 fi
 
