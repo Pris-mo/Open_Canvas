@@ -2,9 +2,8 @@
 
 ## Pipelines Container
 
-Editable install:
-/app/venvs/open_canvas/bin/python -m pip install -e /app/pipelines/Open_Canvas
-
-Test:
+Inside the container:
+/app/pipelines/Open_Canvas/scripts/check_system_deps.sh
+/app/pipelines/Open_Canvas/scripts/install_venv_deps.sh
 /app/venvs/open_canvas/bin/python -m orchestrator.cli --help
-/app/venvs/open_canvas/bin/python scripts/verify_imports.py
+/app/venvs/open_canvas/bin/python scripts/smoke_imports.py
