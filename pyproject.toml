@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "open-canvas"
+version = "0.0.0"
+description = "Canvas ingest + processing pipeline"
+requires-python = ">=3.10"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = [".", "canvas_crawler", "pre_processer"]
+include = [
+  "orchestrator*",
+  "chunker*",
+  "canvascrawler*",
+  "fileConversion*"
+]
