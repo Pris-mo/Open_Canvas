@@ -12,3 +12,5 @@ pre_processer/test_files/
 /trash/**
 /test_files/**
 /runs/**
+
+/open_canvas.egg-info/
