@@ -325,11 +325,19 @@ class FileHandler(ContentHandler):
     
     def save(self, parsed):
         self.storage.write_json(parsed)
-        # Download the actual file
+
         if parsed.get("url"):
-            self.storage.download_file(parsed["url"], parsed["raw_file_path"])
+            full_path = self.storage.download_file(parsed["url"], parsed["raw_file_path"])
         else:
             self.logger.warning(f"No URL for file {parsed['id']}, skipping download.")
+            return
+
+        if (parsed.get("extension") or "").lower() == "zip":
+            self.storage.extract_zip_recursive_using_parent_json(
+                zip_abs_path=full_path,
+                parent_record=parsed,
+                max_depth=8
+            )
 
 
 class classicQuizHandler(ContentHandler):
