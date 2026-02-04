@@ -305,16 +305,21 @@ def run_pipeline(cfg: dict[str, Any], repo_root: Path, cfg_path: Path | None = N
     ctx = build_context(cfg, repo_root, master_run_dir)
 
     # 1) Crawl
+    print("::STEP:: 1/4 Crawl", flush=True)
     run_crawler(cfg, repo_root, master_run_dir)
 
     # 2) Convert
+    print("::STEP:: 2/4 Convert", flush=True)
     run_conversion(cfg, repo_root, ctx)
 
     # 3) Update metadata
+    print("::STEP:: 3/4 Metadata", flush=True)
     updated, skipped = update_metadata(cfg, ctx)
 
     # 4) Chunking
+    print("::STEP:: 4/4 Chunking", flush=True)
     run_chunking(cfg, repo_root, ctx, cfg_path or (repo_root / "orchestrator" / "config.yml"))
+    print("::STEP:: DONE", flush=True)
 
     summary = {
         "master_run_dir": str(master_run_dir),
