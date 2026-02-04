@@ -27,6 +27,21 @@ def _run(cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> None:
     subprocess.run(cmd, cwd=str(cwd), env=env, check=True)
 
 
+def _resolve_python(cfg_section: dict[str, Any] | None, repo_root: Path) -> str:
+    if cfg_section and cfg_section.get("python"):
+        return str(cfg_section["python"])
+
+    env_py = os.environ.get("VENV_PY")
+    if env_py and Path(env_py).is_file():
+        return env_py
+
+    venv_py = repo_root / ".venv" / "bin" / "python"
+    if venv_py.is_file():
+        return str(venv_py)
+
+    return shutil.which("python") or "python"
+
+
 def _load_yaml(path: Path) -> dict[str, Any]:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
@@ -69,7 +84,7 @@ def build_context(cfg: dict[str, Any], repo_root: Path, master_run_dir: Path) ->
 
 def run_crawler(cfg: dict[str, Any], repo_root: Path, master_run_dir: Path) -> None:
     canvas = cfg["canvas"]
-    python = canvas.get("python") or shutil.which("python") or "python"
+    python = _resolve_python(canvas, repo_root)
     crawler_script = str((repo_root / canvas["crawler_script"]).resolve())
 
     output_dir = (master_run_dir / "canvas").resolve()
@@ -140,7 +155,7 @@ def _discover_files_under(
 
 def run_conversion(cfg: dict[str, Any], repo_root: Path, ctx: RunContext) -> None:
     conv = cfg["conversion"]
-    python = conv.get("python") or shutil.which("python") or "python"
+    python = _resolve_python(conv, repo_root)
     script = str((repo_root / conv["script"]).resolve())
 
     ctx.processor_dir.mkdir(parents=True, exist_ok=True)
@@ -243,7 +258,7 @@ def run_chunking(cfg: dict[str, Any], repo_root: Path, ctx: RunContext, cfg_path
         print("Chunking disabled (chunking.enabled=false). Skipping.")
         return
 
-    python = ch.get("python") or shutil.which("python") or "python"
+    python = _resolve_python(ch, repo_root)
 
     cmd = [
         python,
@@ -290,16 +305,21 @@ def run_pipeline(cfg: dict[str, Any], repo_root: Path, cfg_path: Path | None = N
     ctx = build_context(cfg, repo_root, master_run_dir)
 
     # 1) Crawl
+    print("::STEP:: 1/4 Crawl", flush=True)
     run_crawler(cfg, repo_root, master_run_dir)
 
     # 2) Convert
+    print("::STEP:: 2/4 Convert", flush=True)
     run_conversion(cfg, repo_root, ctx)
 
     # 3) Update metadata
+    print("::STEP:: 3/4 Metadata", flush=True)
     updated, skipped = update_metadata(cfg, ctx)
 
     # 4) Chunking
+    print("::STEP:: 4/4 Chunking", flush=True)
     run_chunking(cfg, repo_root, ctx, cfg_path or (repo_root / "orchestrator" / "config.yml"))
+    print("::STEP:: DONE", flush=True)
 
     summary = {
         "master_run_dir": str(master_run_dir),
