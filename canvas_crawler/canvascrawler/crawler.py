@@ -19,7 +19,7 @@ class CanvasCrawler:
 #            ("syllabus",          {"course_id": self.course_id, "item_id": None, "depth": 0}),
             ("modules",           {"course_id": self.course_id, "item_id": None, "depth": 0}),
             ("announcements",     {"course_id": self.course_id, "item_id": None, "depth": 0}),
-#            ("assignments", {"course_id": self.course_id, "item_id": None, "depth": 0}),
+            ("assignments", {"course_id": self.course_id, "item_id": None, "depth": 0}),
         ]
 
     def _enqueue(self, queue, content_type, context, source="unknown"):
@@ -116,6 +116,7 @@ class CanvasCrawler:
 
         # 2) one module -> its items (pages, assignments, files, etc.)
         elif content_type == "module":
+            module_id = context["item_id"]
             for mi in self.client.canvas.get_module_items(cid, context["item_id"]):
                 ct = mi["type"].lower()  # e.g. "page", "assignment", "file"
                 
@@ -145,7 +146,12 @@ class CanvasCrawler:
 
                 links.append((
                     ct,
-                    {"course_id": cid, "item_id": item_id, "depth": next_depth}
+                    {
+                        "course_id": cid, 
+                        "item_id": item_id,
+                        "depth": next_depth,
+                        "module_id": module_id,
+                    }
                 ))
 
         # 3) assignments list -> each assignment

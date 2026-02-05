@@ -17,23 +17,47 @@ class ContentHandler(ABC):
         self.storage = storage
         self.logger  = logger
 
+    def should_skip(self, context, data) -> bool:
+        return False  # default
+    
     def run(self, context):
-        data   = self.fetch(context)             # 1) API call
-        
-        # if the content is locked, handle accordingly
-        if isinstance(data, dict) and data.get("locked_for_user") is True:
+        data = self.fetch(context)  # 1) API call
+
+        # Locked content: short-circuit
+        can_update = data.get("can_update", False) if isinstance(data, dict) else None
+        if isinstance(data, dict) and data.get("locked_for_user") is True and data.get("can_update") is False:
             parsed = self.parse_locked(context, data)
-            self.save(parsed)  # save stub JSON; body is empty so no HTML written
+            self.save(parsed)
             self.logger.warning(
                 f"Locked content: type={context.get('content_type')} id={parsed.get('id')} "
                 f"course={context.get('course_id')} item={context.get('item_id')} "
                 f"reason={parsed.get('lock_explanation')!r}"
             )
             return parsed
-        
-        # normal processing
-        parsed = self.parse(context, data)       # 2) normalize/flatten into your JSON schema
-        self.save(parsed)                        # 3) write JSON + download raw files
+
+        # Best-effort metadata extracted from raw API payload
+        published = None
+        if isinstance(data, dict) and "published" in data:
+            published = bool(data.get("published"))
+
+        # Allow subclasses to short-circuit without duplicating the whole run() ((Assignments/NewQuizzes do this))
+        if self.should_skip(context, data):
+            return None
+
+        # Normal processing
+        parsed = self.parse(context, data)  # 2) normalize/flatten
+        if not isinstance(parsed, dict):
+            return parsed  # (or raise) but keeps you safe if a handler returns None/non-dict
+
+        # Carry over standardized metadata
+        if published is not None:
+            parsed["published"] = published
+
+        module_id = context.get("module_id")
+        if module_id is not None:
+            parsed["module_id"] = module_id
+
+        self.save(parsed)  # 3) write JSON + download raw files
         return parsed
     
 
@@ -108,20 +132,7 @@ class ExternalLinkHandler(ContentHandler):
         return slug[:180]
 
 class AssignmentHandler(ContentHandler):
-    def run(self, context):
-        data = self.fetch(context)
-
-        # locked handling still applies
-        if isinstance(data, dict) and data.get("locked_for_user") is True:
-            parsed = self.parse_locked(context, data)
-            self.save(parsed)
-            self.logger.warning(
-                f"Locked content: type={context.get('content_type')} id={parsed.get('id')} "
-                f"course={context.get('course_id')} item={context.get('item_id')} "
-                f"reason={parsed.get('lock_explanation')!r}"
-            )
-            return parsed
-
+    def should_skip(self, context, data) -> bool:
         # SAFETY NET: New Quizzes appear as assignments but must be handled via modules
         if isinstance(data, dict) and data.get("quiz_lti") is True:
             self.logger.info(
@@ -129,12 +140,8 @@ class AssignmentHandler(ContentHandler):
                 f"course={context.get('course_id')} assignment_id={data.get('id')} "
                 f"(should be discovered via modules instead)"
             )
-            return None  # important: tell crawler nothing was parsed
-
-        # normal assignment path
-        parsed = self.parse(context, data)
-        self.save(parsed)
-        return parsed
+            return True
+        return False
 
     def fetch(self, context):
         return self.client.canvas.get_assignment(context["course_id"], context["item_id"])
