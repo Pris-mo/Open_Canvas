@@ -303,17 +303,24 @@ def run_pipeline(cfg: dict[str, Any], repo_root: Path, cfg_path: Path | None = N
 
     ctx = build_context(cfg, repo_root, master_run_dir)
 
+
+    
     # 1) Crawl
+    print("::STEP:: Step 1 of 5: Crawling the Canvas Course and Gathering Files", flush=True)
     run_crawler(cfg, repo_root, master_run_dir)
 
     # 2) Convert
+    print("::STEP:: Step 2 of 5: Converting Files from source format to markdown", flush=True)
     run_conversion(cfg, repo_root, ctx)
 
     # 3) Update metadata
+    print("::STEP:: Step 3 of 5: Adding and verifying files metadata", flush=True)
     updated, skipped = update_metadata(cfg, ctx)
 
     # 4) Chunking
+    print("::STEP:: Step 4 of 5: Chunking the markdown files, preparing to upload", flush=True)
     run_chunking(cfg, repo_root, ctx, cfg_path or (repo_root / "orchestrator" / "config.yml"))
+    print("::STEP:: Step 5 of 5: Course Provisioning", flush=True)
 
     summary = {
         "master_run_dir": str(master_run_dir),
