@@ -57,6 +57,14 @@ class ContentHandler(ABC):
         if module_id is not None:
             parsed["module_id"] = module_id
 
+        module_id = context.get("module_id")
+        if module_id is not None:
+            parsed["module_id"] = module_id
+
+        module_name = context.get("module_name")
+        if module_name:
+            parsed["module_name"] = module_name
+
         self.save(parsed)  # 3) write JSON + download raw files
         return parsed
     

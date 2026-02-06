@@ -7,15 +7,29 @@ name = "open-canvas"
 version = "0.0.0"
 description = "Canvas ingest + processing pipeline"
 requires-python = ">=3.10"
+dependencies = [
+  "beautifulsoup4>=4.13",
+  "requests>=2.32",
+  "tiktoken>=0.9",
+  "PyYAML>=6.0",
+  "langchain-text-splitters>=0.3",
+  "markitdown>=0.1.2",
+  "docling",
+  "python-dotenv>=1.1",
+]
+
+[project.optional-dependencies]
+llm = ["openai>=1.0"]
+test = ["pytest>=7"]
 
 [tool.setuptools]
-package-dir = {"" = "."}
+package-dir = { "" = "." }
 
 [tool.setuptools.packages.find]
-where = [".", "canvas_crawler", "pre_processer"]
+where = ["."]
 include = [
   "orchestrator*",
   "chunker*",
   "canvascrawler*",
-  "fileConversion*"
+  "fileConversion*",
 ]
