@@ -139,11 +139,13 @@ def _discover_files_under(
 
     return files
 
-
 def run_conversion(cfg: dict[str, Any], repo_root: Path, ctx: RunContext) -> None:
     conv = cfg["conversion"]
     python = conv.get("python") or shutil.which("python") or "python"
-    script = str((repo_root / conv["script"]).resolve())
+
+    # Treat this as either a module path or a relative script path.
+    # Default: module path for installed package usage.
+    conv_target = conv.get("script") or "pre_processer.run_conversion"
 
     ctx.processor_dir.mkdir(parents=True, exist_ok=True)
 
@@ -174,12 +176,32 @@ def run_conversion(cfg: dict[str, Any], repo_root: Path, ctx: RunContext) -> Non
         print(msg)
         return
 
-    cmd = [
-        python,
-        script,
-        "--run-dir", str(ctx.processor_dir),
-        "--source-root", str(source_root),
-    ]
+    # Decide whether this is a module or a path
+    is_module_like = (
+        "/" not in conv_target
+        and "\\" not in conv_target
+        and not conv_target.endswith(".py")
+    )
+
+    if is_module_like:
+        # e.g. "pre_processer.run_conversion"
+        cmd = [
+            python,
+            "-m",
+            conv_target,
+            "--run-dir", str(ctx.processor_dir),
+            "--source-root", str(source_root),
+        ]
+    else:
+        # Treat as a relative script path under repo_root
+        script_path = (repo_root / conv_target).resolve()
+        cmd = [
+            python,
+            str(script_path),
+            "--run-dir", str(ctx.processor_dir),
+            "--source-root", str(source_root),
+        ]
+
     if conv.get("verbose", False):
         cmd.append("--verbose")
     if not conv.get("enable_llm", True):

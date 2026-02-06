@@ -109,7 +109,11 @@ def parse_args() -> argparse.Namespace:
         default="canvas_crawler.cli",  # or whatever your real entrypoint is
         help="Crawler entrypoint module for python -m (e.g. 'canvas_crawler.cli').",
     )
-    p.add_argument("--conversion-script", default="pre_processer/run_conversion.py")
+    p.add_argument(
+        "--conversion-script",
+        default="pre_processer.run_conversion",   # 👈 module path, not file path
+        help="Conversion entrypoint (module path or script path).",
+    )
 
     # Chunking flags
     p.add_argument("--chunking", dest="chunking_enabled", action="store_true", default=True)
