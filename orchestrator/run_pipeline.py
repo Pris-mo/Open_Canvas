@@ -267,8 +267,20 @@ def run_chunking(cfg: dict[str, Any], repo_root: Path, ctx: RunContext, cfg_path
 
     _run(cmd, cwd=repo_root, env=env)
 
+def _resolve_runs_root(runs_root_arg: str | Path, repo_root: Path) -> Path:
+    """
+    Resolve runs_root based on whether it's absolute or relative.
+
+    - If runs_root_arg is an absolute path, use it as-is.
+    - Otherwise, treat it as relative to repo_root.
+    """
+    p = Path(runs_root_arg)
+    if p.is_absolute():
+        return p.resolve()
+    return (repo_root / p).resolve()
+
 def run_pipeline(cfg: dict[str, Any], repo_root: Path, cfg_path: Path | None = None) -> int:
-    runs_root = (repo_root / cfg["run"]["runs_root"]).resolve()
+    runs_root = _resolve_runs_root(cfg["run"]["runs_root"], repo_root)
     runs_root.mkdir(parents=True, exist_ok=True)
 
     name = cfg["run"].get("name") or datetime.now().strftime("%Y%m%d_%H%M%S")
