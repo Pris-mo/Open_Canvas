@@ -66,25 +66,25 @@ def build_context(cfg: dict[str, Any], repo_root: Path, master_run_dir: Path) ->
         json_output_dir=json_output_dir,
     )
 
-
 def run_crawler(cfg: dict[str, Any], repo_root: Path, master_run_dir: Path) -> None:
     canvas = cfg["canvas"]
     python = canvas.get("python") or shutil.which("python") or "python"
-    crawler_script = str((repo_root / canvas["crawler_script"]).resolve())
+
+    # Treat this as a module path, e.g. "canvas_crawler.cli"
+    crawler_module = canvas.get("crawler_module") or "canvas_crawler.cli"
 
     output_dir = (master_run_dir / "canvas").resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     cmd = [
         python,
-        crawler_script,
+        "-m", crawler_module,
         "--course-id", str(canvas["course_id"]),
         "--output-dir", str(output_dir),
         "--depth-limit", str(canvas.get("depth_limit", 15)),
         "--canvas-url", str(canvas["canvas_url"]),
     ]
 
-    # ✅ pass token explicitly if present
     token = canvas.get("token")
     if token:
         cmd += ["--token", str(token)]

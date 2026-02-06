@@ -104,7 +104,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--conversion-verbose", action="store_true")
 
     # Scripts (allow override without YAML)
-    p.add_argument("--crawler-script", default="canvas_crawler/canvas_crawler.py")
+    p.add_argument(
+        "--crawler-module",
+        default="canvas_crawler.cli",  # or whatever your real entrypoint is
+        help="Crawler entrypoint module for python -m (e.g. 'canvas_crawler.cli').",
+    )
     p.add_argument("--conversion-script", default="pre_processer/run_conversion.py")
 
     # Chunking flags
@@ -163,7 +167,7 @@ def build_cfg_from_cli(args: argparse.Namespace, repo_root: Path) -> dict[str, A
             "name": args.run_name,
         },
         "canvas": {
-            "crawler_script": args.crawler_script,
+            "crawler_module": args.crawler_module,
             "canvas_url": canvas_api_url,
             "course_id": course_id,
             "depth_limit": args.depth_limit,
