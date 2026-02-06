@@ -1,10 +1,10 @@
 import argparse
 import logging
 import sys
-from canvascrawler.client import Canvas, WebClient
-from canvascrawler.storage import StorageManager
-from canvascrawler.crawler import CanvasCrawler
-from canvascrawler.handlers import ClientBundle
+from canvas_crawler.canvascrawler.client import Canvas, WebClient
+from canvas_crawler.canvascrawler.storage import StorageManager
+from canvas_crawler.canvascrawler.crawler import CanvasCrawler
+from canvas_crawler.canvascrawler.handlers import ClientBundle
 import os
 from datetime import datetime
 

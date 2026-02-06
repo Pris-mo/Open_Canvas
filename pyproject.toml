@@ -31,6 +31,5 @@ include = [
   "orchestrator*",
   "chunker*",
   "canvas_crawler*",
-  "canvascrawler*",
   "fileConversion*",
 ]

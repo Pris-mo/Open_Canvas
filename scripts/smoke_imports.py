@@ -7,7 +7,7 @@ import markitdown
 
 import orchestrator
 import chunker
-import canvascrawler
+import canvas_crawler.canvascrawler
 import fileConversion
 
 print("OK: full pipeline imports succeeded")
