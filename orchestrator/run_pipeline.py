@@ -70,15 +70,16 @@ def run_crawler(cfg: dict[str, Any], repo_root: Path, master_run_dir: Path) -> N
     canvas = cfg["canvas"]
     python = canvas.get("python") or shutil.which("python") or "python"
 
-    # Treat this as a module path, e.g. "canvas_crawler.cli"
-    crawler_module = canvas.get("crawler_module") or "canvas_crawler.cli"
+    # Treat this as a *module path* for `python -m`
+    # e.g. "canvas_crawler.cli" or "canvas_crawler.canvas_crawler"
+    crawler_module = canvas.get("crawler_script") or "canvas_crawler.cli"
 
     output_dir = (master_run_dir / "canvas").resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     cmd = [
         python,
-        "-m", crawler_module,
+        "-m", crawler_module,          # 👈 key change: module, not script path
         "--course-id", str(canvas["course_id"]),
         "--output-dir", str(output_dir),
         "--depth-limit", str(canvas.get("depth_limit", 15)),
@@ -94,6 +95,7 @@ def run_crawler(cfg: dict[str, Any], repo_root: Path, master_run_dir: Path) -> N
 
     env = os.environ.copy()
     _run(cmd, cwd=repo_root, env=env)
+
 
 def _should_skip(path: Path, root: Path, skip_dirnames: set[str]) -> bool:
     rel = path.relative_to(root)
