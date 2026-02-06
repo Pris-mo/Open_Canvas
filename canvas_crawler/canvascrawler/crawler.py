@@ -19,7 +19,7 @@ class CanvasCrawler:
 #            ("syllabus",          {"course_id": self.course_id, "item_id": None, "depth": 0}),
             ("modules",           {"course_id": self.course_id, "item_id": None, "depth": 0}),
             ("announcements",     {"course_id": self.course_id, "item_id": None, "depth": 0}),
-#            ("assignments", {"course_id": self.course_id, "item_id": None, "depth": 0}),
+            ("assignments", {"course_id": self.course_id, "item_id": None, "depth": 0}),
         ]
 
     def _enqueue(self, queue, content_type, context, source="unknown"):
@@ -73,7 +73,7 @@ class CanvasCrawler:
                 continue
 
             # Enqueue links discovered via the module/assignment logic
-            for link_type, new_context in self.discover_links(content_type, context):
+            for link_type, new_context in self.discover_links(content_type, context, parsed):
                 self._enqueue(queue, link_type, new_context, source=f"discover_links:{content_type}")
             
             # Enqueue links via href extraction
@@ -88,7 +88,9 @@ class CanvasCrawler:
                     new_ctx = {
                         "course_id": context["course_id"],
                         "item_id":   item_id,
-                        "depth":     next_depth
+                        "depth":     next_depth,
+                        "module_id": context.get("module_id"),
+                        "module_name": context.get("module_name"),
                     }
                     self._enqueue(queue, ct, new_ctx, source="href_extraction")
                 else:
@@ -96,17 +98,17 @@ class CanvasCrawler:
                         self._enqueue(queue, "external_link", {
                             "course_id": context["course_id"],
                             "item_id": href,
-                            "depth": next_depth
+                            "depth": next_depth,
+                            "module_id": context.get("module_id"),
+                            "module_name": context.get("module_name"),
                         }, source="href_external")
                     pass
 
-
-    def discover_links(self, content_type, context):
+    def discover_links(self, content_type, context, parsed=None):
         cid        = context["course_id"]
         next_depth = context["depth"] + 1
         links      = []
 
-        # 1) modules list -> each module
         if content_type == "modules":
             for mod in self.client.canvas.get_modules(cid):
                 links.append((
@@ -114,24 +116,33 @@ class CanvasCrawler:
                     {"course_id": cid, "item_id": mod["id"], "depth": next_depth}
                 ))
 
-        # 2) one module -> its items (pages, assignments, files, etc.)
         elif content_type == "module":
-            for mi in self.client.canvas.get_module_items(cid, context["item_id"]):
-                ct = mi["type"].lower()  # e.g. "page", "assignment", "file"
-                
-                # NOTE: Canvas module items use different IDs depending on type.
-                # We must translate module-item records into real content IDs here.
+            module_id = context["item_id"]
+
+            # Prefer the parsed module title (already fetched by ModuleHandler.run())
+            module_name = None
+            if isinstance(parsed, dict):
+                module_name = parsed.get("title") or parsed.get("name")
+
+            # Fallback if needed (extra API call, but only if parsed missing title)
+            if not module_name:
+                try:
+                    mod = self.client.canvas.get_module(cid, module_id)
+                    module_name = mod.get("name")
+                except Exception:
+                    module_name = None
+
+            for mi in self.client.canvas.get_module_items(cid, module_id):
+                ct = mi["type"].lower()
                 if ct == "subheader":
                     continue
-                elif ct == "page":
+
+                if ct == "page":
                     item_id = mi["page_url"]
-                elif ct == "assignment" and mi.get("quiz_lti") == True:
-                    # Canvas New Quizzes appear as module items of type "Assignment" with quiz_lti=True.
-                    # They cannot be fetched/parsed via the normal Assignments API, so route them to a
-                    # dedicated handler.
+                elif ct == "assignment" and mi.get("quiz_lti") is True:
                     ct = "new_quiz"
                     item_id = mi["content_id"]
-                elif ct in ("assignment", "discussion","quiz","file"):
+                elif ct in ("assignment", "discussion", "quiz", "file"):
                     item_id = mi["content_id"]
                 elif ct in ("externalurl", "externaltool"):
                     ct = "external_link"
@@ -140,12 +151,17 @@ class CanvasCrawler:
                         self.logger.warning(f"Module item external link missing URL: {mi}")
                         continue
                 else:
-                    # Fallback: module item id (may not always map to real object)
                     item_id = mi["id"]
 
                 links.append((
                     ct,
-                    {"course_id": cid, "item_id": item_id, "depth": next_depth}
+                    {
+                        "course_id": cid,
+                        "item_id": item_id,
+                        "depth": next_depth,
+                        "module_id": module_id,
+                        "module_name": module_name,   # ✅ add this
+                    }
                 ))
 
         # 3) assignments list -> each assignment
