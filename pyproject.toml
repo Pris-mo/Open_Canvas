@@ -30,6 +30,6 @@ where = ["."]
 include = [
   "orchestrator*",
   "chunker*",
-  "canvascrawler*",
-  "fileConversion*",
+  "canvas_crawler*",
+  "pre_processer*",
 ]

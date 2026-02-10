@@ -7,8 +7,8 @@ from typing import List
 
 from dotenv import load_dotenv
 
-from fileConversion.config import AppConfig
-from fileConversion.pipeline import Pipeline
+from pre_processer.fileConversion.config import AppConfig
+from pre_processer.fileConversion.pipeline import Pipeline
 
 
 def parse_args() -> argparse.Namespace:

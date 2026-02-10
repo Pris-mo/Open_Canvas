@@ -81,25 +81,26 @@ def build_context(cfg: dict[str, Any], repo_root: Path, master_run_dir: Path) ->
         json_output_dir=json_output_dir,
     )
 
-
 def run_crawler(cfg: dict[str, Any], repo_root: Path, master_run_dir: Path) -> None:
     canvas = cfg["canvas"]
-    python = _resolve_python(canvas, repo_root)
-    crawler_script = str((repo_root / canvas["crawler_script"]).resolve())
+    python = canvas.get("python") or shutil.which("python") or "python"
+
+    # Treat this as a *module path* for `python -m`
+    # e.g. "canvas_crawler.cli" or "canvas_crawler.canvas_crawler"
+    crawler_module = canvas.get("crawler_script") or "canvas_crawler.cli"
 
     output_dir = (master_run_dir / "canvas").resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     cmd = [
         python,
-        crawler_script,
+        "-m", crawler_module,          # 👈 key change: module, not script path
         "--course-id", str(canvas["course_id"]),
         "--output-dir", str(output_dir),
         "--depth-limit", str(canvas.get("depth_limit", 15)),
         "--canvas-url", str(canvas["canvas_url"]),
     ]
 
-    # ✅ pass token explicitly if present
     token = canvas.get("token")
     if token:
         cmd += ["--token", str(token)]
@@ -109,6 +110,7 @@ def run_crawler(cfg: dict[str, Any], repo_root: Path, master_run_dir: Path) -> N
 
     env = os.environ.copy()
     _run(cmd, cwd=repo_root, env=env)
+
 
 def _should_skip(path: Path, root: Path, skip_dirnames: set[str]) -> bool:
     rel = path.relative_to(root)
@@ -152,11 +154,13 @@ def _discover_files_under(
 
     return files
 
-
 def run_conversion(cfg: dict[str, Any], repo_root: Path, ctx: RunContext) -> None:
     conv = cfg["conversion"]
-    python = _resolve_python(conv, repo_root)
-    script = str((repo_root / conv["script"]).resolve())
+    python = conv.get("python") or shutil.which("python") or "python"
+
+    # Treat this as either a module path or a relative script path.
+    # Default: module path for installed package usage.
+    conv_target = conv.get("script") or "pre_processer.run_conversion"
 
     ctx.processor_dir.mkdir(parents=True, exist_ok=True)
 
@@ -187,12 +191,32 @@ def run_conversion(cfg: dict[str, Any], repo_root: Path, ctx: RunContext) -> Non
         print(msg)
         return
 
-    cmd = [
-        python,
-        script,
-        "--run-dir", str(ctx.processor_dir),
-        "--source-root", str(source_root),
-    ]
+    # Decide whether this is a module or a path
+    is_module_like = (
+        "/" not in conv_target
+        and "\\" not in conv_target
+        and not conv_target.endswith(".py")
+    )
+
+    if is_module_like:
+        # e.g. "pre_processer.run_conversion"
+        cmd = [
+            python,
+            "-m",
+            conv_target,
+            "--run-dir", str(ctx.processor_dir),
+            "--source-root", str(source_root),
+        ]
+    else:
+        # Treat as a relative script path under repo_root
+        script_path = (repo_root / conv_target).resolve()
+        cmd = [
+            python,
+            str(script_path),
+            "--run-dir", str(ctx.processor_dir),
+            "--source-root", str(source_root),
+        ]
+
     if conv.get("verbose", False):
         cmd.append("--verbose")
     if not conv.get("enable_llm", True):
@@ -282,8 +306,20 @@ def run_chunking(cfg: dict[str, Any], repo_root: Path, ctx: RunContext, cfg_path
 
     _run(cmd, cwd=repo_root, env=env)
 
+def _resolve_runs_root(runs_root_arg: str | Path, repo_root: Path) -> Path:
+    """
+    Resolve runs_root based on whether it's absolute or relative.
+
+    - If runs_root_arg is an absolute path, use it as-is.
+    - Otherwise, treat it as relative to repo_root.
+    """
+    p = Path(runs_root_arg)
+    if p.is_absolute():
+        return p.resolve()
+    return (repo_root / p).resolve()
+
 def run_pipeline(cfg: dict[str, Any], repo_root: Path, cfg_path: Path | None = None) -> int:
-    runs_root = (repo_root / cfg["run"]["runs_root"]).resolve()
+    runs_root = _resolve_runs_root(cfg["run"]["runs_root"], repo_root)
     runs_root.mkdir(parents=True, exist_ok=True)
 
     name = cfg["run"].get("name") or datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -304,22 +340,24 @@ def run_pipeline(cfg: dict[str, Any], repo_root: Path, cfg_path: Path | None = N
 
     ctx = build_context(cfg, repo_root, master_run_dir)
 
+
+    
     # 1) Crawl
-    print("::STEP:: 1/4 Crawl", flush=True)
+    print("::STEP:: Step 1 of 5: Crawling the Canvas Course and Gathering Files", flush=True)
     run_crawler(cfg, repo_root, master_run_dir)
 
     # 2) Convert
-    print("::STEP:: 2/4 Convert", flush=True)
+    print("::STEP:: Step 2 of 5: Converting Files from source format to markdown", flush=True)
     run_conversion(cfg, repo_root, ctx)
 
     # 3) Update metadata
-    print("::STEP:: 3/4 Metadata", flush=True)
+    print("::STEP:: Step 3 of 5: Adding and verifying files metadata", flush=True)
     updated, skipped = update_metadata(cfg, ctx)
 
     # 4) Chunking
-    print("::STEP:: 4/4 Chunking", flush=True)
+    print("::STEP:: Step 4 of 5: Chunking the markdown files, preparing to upload", flush=True)
     run_chunking(cfg, repo_root, ctx, cfg_path or (repo_root / "orchestrator" / "config.yml"))
-    print("::STEP:: DONE", flush=True)
+    print("::STEP:: Step 5 of 5: Course Provisioning", flush=True)
 
     summary = {
         "master_run_dir": str(master_run_dir),
