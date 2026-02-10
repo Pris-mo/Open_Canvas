@@ -27,6 +27,21 @@ def _run(cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> None:
     subprocess.run(cmd, cwd=str(cwd), env=env, check=True)
 
 
+def _resolve_python(cfg_section: dict[str, Any] | None, repo_root: Path) -> str:
+    if cfg_section and cfg_section.get("python"):
+        return str(cfg_section["python"])
+
+    env_py = os.environ.get("VENV_PY")
+    if env_py and Path(env_py).is_file():
+        return env_py
+
+    venv_py = repo_root / ".venv" / "bin" / "python"
+    if venv_py.is_file():
+        return str(venv_py)
+
+    return shutil.which("python") or "python"
+
+
 def _load_yaml(path: Path) -> dict[str, Any]:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
@@ -267,7 +282,7 @@ def run_chunking(cfg: dict[str, Any], repo_root: Path, ctx: RunContext, cfg_path
         print("Chunking disabled (chunking.enabled=false). Skipping.")
         return
 
-    python = ch.get("python") or shutil.which("python") or "python"
+    python = _resolve_python(ch, repo_root)
 
     cmd = [
         python,
