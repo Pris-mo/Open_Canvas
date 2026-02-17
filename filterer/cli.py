@@ -24,6 +24,83 @@ def _estimate_token_count(text: str) -> int:
     """
     return len(re.findall(r"\S+", text))
 
+def _annotate_json_removal(
+    *,
+    course_root: Path,
+    json_rel_str: str,
+    meta: Dict[str, Any],
+    event: Dict[str, Any],
+) -> None:
+    """
+    Mark the JSON item corresponding to this file as removed.
+
+    - Finds the entry with matching raw_file_path
+    - Sets `removed = True`
+    - Sets `removal_reason` from event["reason"]
+    - Copies some extra event fields (token_count, suffix, blacklisted_term, dupe_of, etc.)
+    """
+    json_path = (course_root / json_rel_str).resolve()
+    if not json_path.exists():
+        return
+
+    try:
+        raw = json_path.read_text(encoding="utf-8")
+        data = json.loads(raw)
+    except Exception:
+        # Don't kill the run if a JSON can't be read/parsed
+        return
+
+    raw_file_path = meta.get("raw_file_path")
+    if not isinstance(raw_file_path, str):
+        return
+
+    # Which event fields do we want to propagate into the item?
+    extra_keys = ("token_count", "suffix", "blacklisted_term", "dupe_of")
+
+    def mark_item(item: Dict[str, Any]) -> None:
+        if not isinstance(item, dict):
+            return
+        if item.get("raw_file_path") != raw_file_path:
+            return
+
+        item["removed"] = True
+        item["removal_reason"] = event.get("reason")
+
+        # Copy over some extra metadata fields from the event
+        for key in extra_keys:
+            if key in event:
+                item[f"removal_{key}"] = event[key]
+
+    # Possible shapes:
+    # 1) Top-level list of items
+    if isinstance(data, list):
+        for obj in data:
+            if isinstance(obj, dict):
+                mark_item(obj)
+
+    # 2) Top-level dict
+    elif isinstance(data, dict):
+        # a) Single item dict with raw_file_path
+        if "raw_file_path" in data:
+            mark_item(data)
+
+        # b) Container dict with "items" list
+        items = data.get("items")
+        if isinstance(items, list):
+            for obj in items:
+                if isinstance(obj, dict):
+                    mark_item(obj)
+
+    # Write the updated JSON back
+    try:
+        json_path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except Exception:
+        # If writing fails, just continue
+        return
+
 
 def _read_exclusion_csv(course_root: Path, csv_path: Path) -> set[Path]:
     """
@@ -415,12 +492,23 @@ def run_filtering(args: argparse.Namespace) -> Dict[str, Any]:
                 }
                 if json_rel_str is not None:
                     event["json_path"] = json_rel_str
+
+                # New: annotate JSON in dry-run
+                if dry_run and json_rel_str is not None and meta is not None:
+                    _annotate_json_removal(
+                        course_root=course_root,
+                        json_rel_str=json_rel_str,
+                        meta=meta,
+                        event=event,
+                    )
+
                 _log_event(event=event, log_removed=log_removed, jsonl_fp=jsonl_fp)
                 maybe_record(event)
                 if not dry_run:
                     p.unlink(missing_ok=True)
                     delete_sidecar_json()
                 continue
+
 
                # 2) title / metadata blacklist (whole-word/phrase, TITLE ONLY)
             if title_blacklist_patterns:
@@ -452,12 +540,21 @@ def run_filtering(args: argparse.Namespace) -> Dict[str, Any]:
                     if json_rel_str is not None:
                         event["json_path"] = json_rel_str
 
+                    if dry_run and json_rel_str is not None and meta is not None:
+                        _annotate_json_removal(
+                            course_root=course_root,
+                            json_rel_str=json_rel_str,
+                            meta=meta,
+                            event=event,
+                        )
+
                     _log_event(event=event, log_removed=log_removed, jsonl_fp=jsonl_fp)
                     maybe_record(event)
                     if not dry_run:
                         p.unlink(missing_ok=True)
                         delete_sidecar_json()
                     continue
+
 
 
             # 3) Duplicate removal
@@ -485,6 +582,14 @@ def run_filtering(args: argparse.Namespace) -> Dict[str, Any]:
                         }
                         if json_rel_str is not None:
                             event["json_path"] = json_rel_str
+
+                        if dry_run and json_rel_str is not None and meta is not None:
+                            _annotate_json_removal(
+                                course_root=course_root,
+                                json_rel_str=json_rel_str,
+                                meta=meta,
+                                event=event,
+                            )
                         _log_event(event=event, log_removed=log_removed, jsonl_fp=jsonl_fp)
                         maybe_record(event)
                         if not dry_run:
@@ -512,6 +617,15 @@ def run_filtering(args: argparse.Namespace) -> Dict[str, Any]:
                     }
                     if json_rel_str is not None:
                         event["json_path"] = json_rel_str
+
+                    if dry_run and json_rel_str is not None and meta is not None:
+                        _annotate_json_removal(
+                            course_root=course_root,
+                            json_rel_str=json_rel_str,
+                            meta=meta,
+                            event=event,
+                        )
+
                     _log_event(event=event, log_removed=log_removed, jsonl_fp=jsonl_fp)
                     maybe_record(event)
                     if not dry_run:
