@@ -4,8 +4,8 @@ run:
 
 canvas:
   crawler_script: "canvas_crawler/canvas_crawler.py"
-  canvas_url: "https://learn.canvas.net"
-  course_id: 3376
+  canvas_url: "https://canvas.upenn.edu"
+  course_id: 1899011
   depth_limit: 15
   verbose: true
 
@@ -27,10 +27,14 @@ bridge:
   md_value_mode: "relative_to_master_run"   # store paths like processor/markdown/pages/...
   atomic_write: true
 
-# Future placeholders
-chunking:
+filtering:
   enabled: true
-  write_chunk_files: true
-
-upload:
-  enabled: false
+  script: filterer.cli         
+  exclude_csv: ""
+  min_token_count: 50
+  title_blacklist: []
+  dry_run: false
+  dedupe: true
+  log_removed: true
+  log_removed_to: "runs/my_run/orchestration/removed.jsonl"
+  max_removed_in_summary: 2000
