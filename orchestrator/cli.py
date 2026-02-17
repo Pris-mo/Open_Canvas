@@ -99,6 +99,16 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--runs-root", default="runs", help="Runs root directory (relative to repo root).")
     p.add_argument("--run-name", default=None, help="Optional run name; default is timestamp.")
 
+    p.add_argument(
+        "--steps",
+        default="all",
+        help=(
+            "Comma-separated list of steps to run: "
+            "crawl,filter,convert,metadata,chunk. "
+            "Default: all"
+        ),
+    )
+
     # Verbose flags
     p.add_argument("--crawler-verbose", action="store_true")
     p.add_argument("--conversion-verbose", action="store_true")
@@ -225,11 +235,19 @@ def build_cfg_from_cli(args: argparse.Namespace, repo_root: Path) -> dict[str, A
         include_set -= _ALWAYS_SKIP  # never allow these
         if not include_set:
             raise ValueError("After removing locked/json_output, --include is empty. Provide at least one folder.")
+    
+    steps_str = getattr(args, "steps", "all")
+    if steps_str.lower() == "all":
+        steps_value: str | list[str] = "all"
+    else:
+        parts = [p.strip() for p in steps_str.split(",") if p.strip()]
+        steps_value = parts
 
     cfg: dict[str, Any] = {
         "run": {
             "runs_root": args.runs_root,
             "name": args.run_name,
+            "steps": steps_value,
         },
         "canvas": {
             "crawler_module": args.crawler_module,

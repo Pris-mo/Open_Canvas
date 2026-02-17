@@ -82,6 +82,41 @@ def build_context(cfg: dict[str, Any], repo_root: Path, master_run_dir: Path) ->
         json_output_dir=json_output_dir,
     )
 
+def _get_enabled_steps(cfg: dict[str, Any]) -> set[str]:
+    """
+    Read run.steps from config and return a normalized set of step names.
+
+    Valid steps:
+      - crawl
+      - filter
+      - convert
+      - metadata
+      - chunk
+
+    If run.steps is missing or 'all', all steps are enabled.
+    """
+    valid_steps = {"crawl", "filter", "convert", "metadata", "chunk"}
+    run_cfg = cfg.get("run", {}) or {}
+    steps_spec = run_cfg.get("steps")
+
+    if not steps_spec or (isinstance(steps_spec, str) and steps_spec.lower() in {"all", "*"}):
+        return set(valid_steps)
+
+    if isinstance(steps_spec, str):
+        parts = [p.strip().lower() for p in steps_spec.split(",") if p.strip()]
+    else:
+        parts = [str(s).strip().lower() for s in steps_spec if str(s).strip()]
+
+    unknown = [p for p in parts if p not in valid_steps]
+    if unknown:
+        raise ValueError(
+            f"Unknown steps in run.steps: {unknown}. "
+            f"Valid values: {sorted(valid_steps)}"
+        )
+
+    return set(parts)
+
+
 def run_crawler(cfg: dict[str, Any], repo_root: Path, master_run_dir: Path) -> None:
     canvas = cfg["canvas"]
     python = canvas.get("python") or shutil.which("python") or "python"
@@ -451,7 +486,6 @@ def run_filtering_stage(cfg: dict[str, Any], repo_root: Path, ctx: RunContext) -
             return {"error": f"Failed to parse filter summary JSON at {summary_json_path}"}
     return None
 
-
 def run_pipeline(cfg: dict[str, Any], repo_root: Path, cfg_path: Path | None = None) -> int:
     runs_root = _resolve_runs_root(cfg["run"]["runs_root"], repo_root)
     runs_root.mkdir(parents=True, exist_ok=True)
@@ -474,28 +508,49 @@ def run_pipeline(cfg: dict[str, Any], repo_root: Path, cfg_path: Path | None = N
 
     ctx = build_context(cfg, repo_root, master_run_dir)
 
+    # NEW: figure out which steps to run
+    steps = _get_enabled_steps(cfg)
 
-    
+    updated = 0
+    skipped = 0
+    filter_summary: Dict[str, Any] | None = None
+
     # 1) Crawl
-    print("::STEP:: Step 1 of 5: Crawling the Canvas Course and Gathering Files", flush=True)
-    run_crawler(cfg, repo_root, master_run_dir)
+    if "crawl" in steps:
+        print("::STEP:: Crawling the Canvas Course and Gathering Files", flush=True)
+        run_crawler(cfg, repo_root, master_run_dir)
+    else:
+        print("::STEP:: Skipping crawl (run.steps does not include 'crawl')", flush=True)
 
-    # 2) Filtering (NEW)
-    print("::STEP:: Step 2 of 6: Filtering crawled course files", flush=True)
-    filter_summary = run_filtering_stage(cfg, repo_root, ctx)
+    # 2) Filtering (pre-conversion)
+    if "filter" in steps and (cfg.get("filtering") or {}).get("enabled", False):
+        print("::STEP:: Filtering crawled course files", flush=True)
+        filter_summary = run_filtering_stage(cfg, repo_root, ctx)
+    else:
+        print("::STEP:: Skipping filtering (disabled via run.steps or filtering.enabled=false)", flush=True)
 
-    # 2) Convert
-    print("::STEP:: Step 2 of 5: Converting Files from source format to markdown", flush=True)
-    run_conversion(cfg, repo_root, ctx)
+    # 3) Convert
+    if "convert" in steps:
+        print("::STEP:: Converting files from source format to markdown", flush=True)
+        run_conversion(cfg, repo_root, ctx)
+    else:
+        print("::STEP:: Skipping conversion (run.steps does not include 'convert')", flush=True)
 
-    # 3) Update metadata
-    print("::STEP:: Step 3 of 5: Adding and verifying files metadata", flush=True)
-    updated, skipped = update_metadata(cfg, ctx)
+    # 4) Update metadata
+    if "metadata" in steps:
+        print("::STEP:: Adding and verifying files metadata", flush=True)
+        updated, skipped = update_metadata(cfg, ctx)
+    else:
+        print("::STEP:: Skipping metadata update (run.steps does not include 'metadata')", flush=True)
 
-    # 4) Chunking
-    print("::STEP:: Step 4 of 5: Chunking the markdown files, preparing to upload", flush=True)
-    run_chunking(cfg, repo_root, ctx, cfg_path or (repo_root / "orchestrator" / "config.yml"))
-    print("::STEP:: Step 5 of 5: Course Provisioning", flush=True)
+    # 5) Chunking
+    if "chunk" in steps and (cfg.get("chunking") or {}).get("enabled", False):
+        print("::STEP:: Chunking the markdown files, preparing to upload", flush=True)
+        run_chunking(cfg, repo_root, ctx, cfg_path or (repo_root / "orchestrator" / "config.yml"))
+    else:
+        print("::STEP:: Skipping chunking (disabled via run.steps or chunking.enabled=false)", flush=True)
+
+    print("::STEP:: Course Provisioning (placeholder)", flush=True)
 
     summary = {
         "master_run_dir": str(master_run_dir),
@@ -505,6 +560,8 @@ def run_pipeline(cfg: dict[str, Any], repo_root: Path, cfg_path: Path | None = N
         "json_output_dir": str(ctx.json_output_dir),
         "updated_json_files": updated,
         "skipped_json_files": skipped,
+        "steps": sorted(list(steps)),
+        "filter_summary": filter_summary,
     }
     (master_run_dir / "orchestration" / "summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2),
@@ -514,7 +571,6 @@ def run_pipeline(cfg: dict[str, Any], repo_root: Path, cfg_path: Path | None = N
     print(f"\nMaster run dir: {master_run_dir}")
     print(f"Updated JSON files: {updated} | Skipped: {skipped}")
     return 0
-
 
 
 def main() -> int:
