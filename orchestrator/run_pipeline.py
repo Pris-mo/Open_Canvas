@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Tuple
+from types import SimpleNamespace
 
 import yaml
 
@@ -80,6 +81,41 @@ def build_context(cfg: dict[str, Any], repo_root: Path, master_run_dir: Path) ->
         markdown_root=markdown_root,
         json_output_dir=json_output_dir,
     )
+
+def _get_enabled_steps(cfg: dict[str, Any]) -> set[str]:
+    """
+    Read run.steps from config and return a normalized set of step names.
+
+    Valid steps:
+      - crawl
+      - filter
+      - convert
+      - metadata
+      - chunk
+
+    If run.steps is missing or 'all', all steps are enabled.
+    """
+    valid_steps = {"crawl", "filter", "convert", "metadata", "chunk"}
+    run_cfg = cfg.get("run", {}) or {}
+    steps_spec = run_cfg.get("steps")
+
+    if not steps_spec or (isinstance(steps_spec, str) and steps_spec.lower() in {"all", "*"}):
+        return set(valid_steps)
+
+    if isinstance(steps_spec, str):
+        parts = [p.strip().lower() for p in steps_spec.split(",") if p.strip()]
+    else:
+        parts = [str(s).strip().lower() for s in steps_spec if str(s).strip()]
+
+    unknown = [p for p in parts if p not in valid_steps]
+    if unknown:
+        raise ValueError(
+            f"Unknown steps in run.steps: {unknown}. "
+            f"Valid values: {sorted(valid_steps)}"
+        )
+
+    return set(parts)
+
 
 def run_crawler(cfg: dict[str, Any], repo_root: Path, master_run_dir: Path) -> None:
     canvas = cfg["canvas"]
@@ -318,6 +354,138 @@ def _resolve_runs_root(runs_root_arg: str | Path, repo_root: Path) -> Path:
         return p.resolve()
     return (repo_root / p).resolve()
 
+def run_filtering_stage(cfg: dict[str, Any], repo_root: Path, ctx: RunContext) -> Dict[str, Any] | None:
+    """
+    Run the filterer on the crawled Canvas course directory, if enabled.
+
+    Config shape (YAML or CLI-built):
+
+    filtering:
+      enabled: true            # default False if omitted
+      script: "filterer.cli"   # module path or script path
+      python: "/path/to/venv/bin/python"  # optional
+      exclude_csv: "path/to/exclude.csv"
+      min_token_count: 25
+      dedupe: true
+      dry_run: false
+      title_blacklist: "midterm,exam,solution"
+      include_dirnames: ["pages", "files"]  # or comma-separated string
+      skip_dirnames: ["some_dir"]
+      log_removed: false
+      log_removed_to: "runs/.../removed.jsonl"
+      max_removed_in_summary: 2000
+      summary_json: "runs/.../filter_summary.json"
+    """
+    filtering_cfg = cfg.get("filtering") or {}
+    if not filtering_cfg.get("enabled", False):
+        print("Filtering disabled (filtering.enabled=false). Skipping.")
+        return None
+
+    python = _resolve_python(filtering_cfg, repo_root)
+
+    # Module path or script path, like other stages
+    target = filtering_cfg.get("script") or "filterer.cli"
+
+    # Where filterer will write its own summary JSON
+    summary_json_path = filtering_cfg.get(
+        "summary_json",
+        str(ctx.master_run_dir / "orchestration" / "filter_summary.json"),
+    )
+
+    def _normalise_csvish(value: Any) -> str | None:
+        """
+        Turn list/tuple/set or string into a single comma-separated string,
+        or None if empty.
+        """
+        if value is None:
+            return None
+        if isinstance(value, (list, tuple, set)):
+            parts = [str(v).strip() for v in value if str(v).strip()]
+            return ",".join(parts) if parts else None
+        s = str(value).strip()
+        return s or None
+
+    # Normalise include/skip/title lists for the CLI
+    include_dirnames = _normalise_csvish(filtering_cfg.get("include_dirnames"))
+    skip_dirnames = _normalise_csvish(filtering_cfg.get("skip_dirnames"))
+    title_blacklist = _normalise_csvish(filtering_cfg.get("title_blacklist"))
+
+    # Decide module vs script path
+    is_module_like = (
+        "/" not in target
+        and "\\" not in target
+        and not target.endswith(".py")
+    )
+
+    if is_module_like:
+        cmd = [
+            python,
+            "-m",
+            target,
+            "--course-root",
+            str(ctx.course_root),
+            "--summary-json",
+            str(summary_json_path),
+        ]
+    else:
+        script_path = (repo_root / target).resolve()
+        cmd = [
+            python,
+            str(script_path),
+            "--course-root",
+            str(ctx.course_root),
+            "--summary-json",
+            str(summary_json_path),
+        ]
+
+    # Map config options -> CLI flags, only if set
+    if filtering_cfg.get("exclude_csv"):
+        cmd += ["--exclude-csv", str(filtering_cfg["exclude_csv"])]
+
+    if title_blacklist:
+        cmd += ["--title-blacklist", title_blacklist]
+
+    if filtering_cfg.get("min_token_count") is not None:
+        cmd += ["--min-token-count", str(int(filtering_cfg["min_token_count"]))]
+
+    # dedupe: filterer's default is dedupe=True; pass --no-dedupe if False
+    if filtering_cfg.get("dedupe", True) is False:
+        cmd.append("--no-dedupe")
+
+    if include_dirnames:
+        cmd += ["--include-dirnames", include_dirnames]
+
+    if skip_dirnames:
+        cmd += ["--skip-dirnames", skip_dirnames]
+
+    if filtering_cfg.get("dry_run", False):
+        cmd.append("--dry-run")
+
+    if filtering_cfg.get("log_removed", False):
+        cmd.append("--log-removed")
+
+    if filtering_cfg.get("log_removed_to"):
+        cmd += ["--log-removed-to", str(filtering_cfg["log_removed_to"])]
+
+    if filtering_cfg.get("max_removed_in_summary") is not None:
+        cmd += [
+            "--max-removed-in-summary",
+            str(int(filtering_cfg["max_removed_in_summary"])),
+        ]
+
+    env = os.environ.copy()
+    print("::STEP:: Filtering crawled course files (pre-conversion)", flush=True)
+    _run(cmd, cwd=repo_root, env=env)
+
+    # Try to read the summary JSON the filterer wrote so we can embed in orchestration summary
+    summary_path = Path(summary_json_path)
+    if summary_path.exists():
+        try:
+            return json.loads(summary_path.read_text(encoding="utf-8"))
+        except Exception:
+            return {"error": f"Failed to parse filter summary JSON at {summary_json_path}"}
+    return None
+
 def run_pipeline(cfg: dict[str, Any], repo_root: Path, cfg_path: Path | None = None) -> int:
     runs_root = _resolve_runs_root(cfg["run"]["runs_root"], repo_root)
     runs_root.mkdir(parents=True, exist_ok=True)
@@ -340,24 +508,49 @@ def run_pipeline(cfg: dict[str, Any], repo_root: Path, cfg_path: Path | None = N
 
     ctx = build_context(cfg, repo_root, master_run_dir)
 
+    # NEW: figure out which steps to run
+    steps = _get_enabled_steps(cfg)
 
-    
+    updated = 0
+    skipped = 0
+    filter_summary: Dict[str, Any] | None = None
+
     # 1) Crawl
-    print("::STEP:: Step 1 of 5: Crawling the Canvas Course and Gathering Files", flush=True)
-    run_crawler(cfg, repo_root, master_run_dir)
+    if "crawl" in steps:
+        print("::STEP:: Crawling the Canvas Course and Gathering Files", flush=True)
+        run_crawler(cfg, repo_root, master_run_dir)
+    else:
+        print("::STEP:: Skipping crawl (run.steps does not include 'crawl')", flush=True)
 
-    # 2) Convert
-    print("::STEP:: Step 2 of 5: Converting Files from source format to markdown", flush=True)
-    run_conversion(cfg, repo_root, ctx)
+    # 2) Filtering (pre-conversion)
+    if "filter" in steps and (cfg.get("filtering") or {}).get("enabled", False):
+        print("::STEP:: Filtering crawled course files", flush=True)
+        filter_summary = run_filtering_stage(cfg, repo_root, ctx)
+    else:
+        print("::STEP:: Skipping filtering (disabled via run.steps or filtering.enabled=false)", flush=True)
 
-    # 3) Update metadata
-    print("::STEP:: Step 3 of 5: Adding and verifying files metadata", flush=True)
-    updated, skipped = update_metadata(cfg, ctx)
+    # 3) Convert
+    if "convert" in steps:
+        print("::STEP:: Converting files from source format to markdown", flush=True)
+        run_conversion(cfg, repo_root, ctx)
+    else:
+        print("::STEP:: Skipping conversion (run.steps does not include 'convert')", flush=True)
 
-    # 4) Chunking
-    print("::STEP:: Step 4 of 5: Chunking the markdown files, preparing to upload", flush=True)
-    run_chunking(cfg, repo_root, ctx, cfg_path or (repo_root / "orchestrator" / "config.yml"))
-    print("::STEP:: Step 5 of 5: Course Provisioning", flush=True)
+    # 4) Update metadata
+    if "metadata" in steps:
+        print("::STEP:: Adding and verifying files metadata", flush=True)
+        updated, skipped = update_metadata(cfg, ctx)
+    else:
+        print("::STEP:: Skipping metadata update (run.steps does not include 'metadata')", flush=True)
+
+    # 5) Chunking
+    if "chunk" in steps and (cfg.get("chunking") or {}).get("enabled", False):
+        print("::STEP:: Chunking the markdown files, preparing to upload", flush=True)
+        run_chunking(cfg, repo_root, ctx, cfg_path or (repo_root / "orchestrator" / "config.yml"))
+    else:
+        print("::STEP:: Skipping chunking (disabled via run.steps or chunking.enabled=false)", flush=True)
+
+    print("::STEP:: Course Provisioning (placeholder)", flush=True)
 
     summary = {
         "master_run_dir": str(master_run_dir),
@@ -367,6 +560,8 @@ def run_pipeline(cfg: dict[str, Any], repo_root: Path, cfg_path: Path | None = N
         "json_output_dir": str(ctx.json_output_dir),
         "updated_json_files": updated,
         "skipped_json_files": skipped,
+        "steps": sorted(list(steps)),
+        "filter_summary": filter_summary,
     }
     (master_run_dir / "orchestration" / "summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2),
@@ -376,7 +571,6 @@ def run_pipeline(cfg: dict[str, Any], repo_root: Path, cfg_path: Path | None = N
     print(f"\nMaster run dir: {master_run_dir}")
     print(f"Updated JSON files: {updated} | Skipped: {skipped}")
     return 0
-
 
 
 def main() -> int:

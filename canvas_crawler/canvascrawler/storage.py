@@ -147,10 +147,21 @@ class StorageManager:
                 if parts:
                     parts.pop()
                 continue
+
+            # Skip macOS metadata folder and everything under it
+            # e.g. "__MACOSX/foo/bar.txt"
+            if part == "__MACOSX":
+                return None
+
             parts.append(part)
 
         if not parts:
             return None
+
+        # Extra safety: if "__MACOSX" appears anywhere in path, skip
+        if "__MACOSX" in parts:
+            return None
+
         return "/".join(parts)
 
 

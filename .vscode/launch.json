@@ -1,147 +1,187 @@
 {
-    "version": "0.2.0",
-      
-    "inputs": [
-      {
-        "id": "courseId",
-        "type": "promptString",
-        "description": "Canvas Course ID",
-        "default": "3376"
-      },
-      {
-        "id": "canvasUrl",
-        "type": "promptString",
-        "description": "Canvas base URL",
-        "default": "https://learn.canvas.net"
-      },{
+  "version": "0.2.0",
+  "inputs": [
+    {
+      "id": "courseId",
+      "type": "promptString",
+      "description": "Canvas Course ID",
+      "default": "3376"
+    },
+    {
+      "id": "canvasUrl",
+      "type": "promptString",
+      "description": "Canvas base URL",
+      "default": "https://learn.canvas.net"
+    },
+    {
       "id": "canvasToken",
       "type": "promptString",
       "description": "Enter Canvas API Token",
       "password": true
-    },{
+    },
+    {
       "id": "openaiApiKey",
       "type": "promptString",
       "description": "Enter OpenAI API Key",
       "password": true
     }
-    ],
-    "configurations": [
-      {
-        "name": "Run Canvas Crawler",
-        "type": "debugpy",
-        "request": "launch",
-        "program": "${workspaceFolder}/canvas_crawler/canvas_crawler.py",
-        "args": [
-          "--course-id", "${input:courseId}",
-          "--output-dir", "${workspaceFolder}/canvas_crawler",
-          "--depth-limit", "15",
-          "--canvas-url", "${input:canvasUrl}",
-          "--verbose",
-          "--token", "${input:canvasToken}",
-        ],
-        "envFile": "${workspaceFolder}/.env",
-        "console": "integratedTerminal",
-        "justMyCode": true
-      },
-      {
-        "name": "Run Canvas Crawler w/ External Links",
-        "type": "debugpy",
-        "request": "launch",
-        "program": "${workspaceFolder}/canvas_crawler/canvas_crawler.py",
-        "args": [
-          "--course-id", "${input:courseId}",
-          "--output-dir", "${workspaceFolder}/canvas_crawler",
-          "--depth-limit", "15",
-          "--canvas-url", "${input:canvasUrl}",
-          "--include-external-links",
-          "--verbose"
-        ],
-        "envFile": "${workspaceFolder}/.env",
-        "console": "integratedTerminal",
-        "justMyCode": true
-      },
-      {
-        "name": "Run Current Python File",
-        "type": "debugpy",
-        "request": "launch",
-        "program": "${file}",
-        "console": "integratedTerminal",
-        "justMyCode": true
-      },
-      {
-        "name": "Run Pre Processor",
-        "type": "debugpy",
-        "request": "launch",
-        "program": "${workspaceFolder}/pre_processer/run_conversion.py",
-        "args": [
-          "--source-root", "${workspaceFolder}/canvas_crawler/output/3376",
-          "${workspaceFolder}/canvas_crawler/output/3376/pages",
-          //"${workspaceFolder}/test_files/Accelerating-Sustainability-with-AI-2025.pdf",
-          //"${workspaceFolder}/test_files/Anderson 1984.pdf",
-          //"${workspaceFolder}/test_files/city-skyline.png",
-          //"${workspaceFolder}/test_files"
-        ],
-        "envFile": "${workspaceFolder}/.env",
-        "console": "integratedTerminal",
-        "justMyCode": true
-      },
-      {
-        "name": "Run chunker",
-        "type": "debugpy",
-        "request": "launch",
-        "module": "chunker.cli",
-        "args": [
-          "--master-run", "${workspaceFolder}/runs/20260129_163239",
-          "--json-output", "${workspaceFolder}/runs/20260129_163239/canvas/output/3376/json_output",
-          "--include-separate-metadata",
-          "--write-chunk-files"
-        ],
-        "envFile": "${workspaceFolder}/.env",
-        "console": "integratedTerminal",
-        "justMyCode": true,
-        "cwd": "${workspaceFolder}"
-        },     
+  ],
+  "configurations": [
+    {
+      "name": "Run Canvas Crawler",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "canvas_crawler.cli",
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "--course-id",
+        "${input:courseId}",
+        "--output-dir",
+        "${workspaceFolder}/runs",
+        "--depth-limit",
+        "15",
+        "--canvas-url",
+        "${input:canvasUrl}",
+        "--verbose",
+        "--token",
+        "${input:canvasToken}",
+      ],
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Run Canvas Crawler w/ External Links",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/canvas_crawler/canvas_crawler.py",
+      "args": [
+        "--course-id",
+        "${input:courseId}",
+        "--output-dir",
+        "${workspaceFolder}/canvas_crawler",
+        "--depth-limit",
+        "15",
+        "--canvas-url",
+        "${input:canvasUrl}",
+        "--include-external-links",
+        "--verbose"
+      ],
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Run Current Python File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Run Pre Processor",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/pre_processer/run_conversion.py",
+      "args": [
+        "--source-root",
+        "${workspaceFolder}/canvas_crawler/output/3376",
+        "${workspaceFolder}/canvas_crawler/output/3376/pages",
+        //"${workspaceFolder}/test_files/Accelerating-Sustainability-with-AI-2025.pdf",
+        //"${workspaceFolder}/test_files/Anderson 1984.pdf",
+        //"${workspaceFolder}/test_files/city-skyline.png",
+        //"${workspaceFolder}/test_files"
+      ],
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Run chunker",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "chunker.cli",
+      "args": [
+        "--master-run",
+        "${workspaceFolder}/runs/20260129_163239",
+        "--json-output",
+        "${workspaceFolder}/runs/20260129_163239/canvas/output/3376/json_output",
+        "--include-separate-metadata",
+        "--write-chunk-files"
+      ],
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}"
+    },
     {
       "name": "Run Orchestrator (CLI) - Prompt Token",
       "type": "debugpy",
       "request": "launch",
       "module": "orchestrator.cli",
       "args": [
-        "--course-url", "https://learn.canvas.net/courses/2251/modules#module_19051",
-        "--canvas-token", "${input:canvasToken}",
-        "--openai-api-key", "${input:openaiApiKey}"
+        "--course-url",
+        "https://learn.canvas.net/courses/2251/modules#module_19051",
+        "--canvas-token",
+        "${input:canvasToken}",
+        "--openai-api-key",
+        "${input:openaiApiKey}"
       ],
       "console": "integratedTerminal",
       "justMyCode": true,
       "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Run Orchestrator (CLI) - Env File",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "orchestrator.cli",
+      "args": [
+        "--course-url",
+        "https://learn.canvas.net/courses/2251/",
+        "--env-file",
+        "${workspaceFolder}/.env",
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Run Orchestrator (CLI) - Include pages,modules",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "orchestrator.cli",
+      "args": [
+        "--course-url",
+        "https://learn.canvas.net/courses/3376",
+        "--env-file",
+        "${workspaceFolder}/.env",
+        "--include",
+        "pages,modules"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Filter Canvas Course Files",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/filterer/cli.py",
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "--course-root",
+        "${workspaceFolder}/runs/output/1899011",
+        "--summary-json",
+        "${workspaceFolder}/runs/logs/filter_summary.json",
+        "--min-token-count",
+        "50",
+        "--dry-run",
+        "--log-removed"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true
     }
-  
-,{
-        "name": "Run Orchestrator (CLI) - Env File",
-        "type": "debugpy",
-        "request": "launch",
-        "module": "orchestrator.cli",
-        "args": [
-          "--course-url", "https://learn.canvas.net/courses/2251/",
-          "--env-file", "${workspaceFolder}/trash/.env",
-        ],
-        "console": "integratedTerminal",
-        "justMyCode": true,
-        "cwd": "${workspaceFolder}"
-      },{
-        "name": "Run Orchestrator (CLI) - Include pages,modules",
-        "type": "debugpy",
-        "request": "launch",
-        "module": "orchestrator.cli",
-        "args": [
-          "--course-url", "https://learn.canvas.net/courses/3376",
-          "--env-file", "${workspaceFolder}/trash/.env",
-          "--include", "pages,modules"
-        ],
-        "console": "integratedTerminal",
-        "justMyCode": true,
-        "cwd": "${workspaceFolder}"
-      }, 
-      
-    ]
-  }
+  ]
+}

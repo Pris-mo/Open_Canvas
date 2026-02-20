@@ -99,6 +99,16 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--runs-root", default="runs", help="Runs root directory (relative to repo root).")
     p.add_argument("--run-name", default=None, help="Optional run name; default is timestamp.")
 
+    p.add_argument(
+        "--steps",
+        default="all",
+        help=(
+            "Comma-separated list of steps to run: "
+            "crawl,filter,convert,metadata,chunk. "
+            "Default: all"
+        ),
+    )
+
     # Verbose flags
     p.add_argument("--crawler-verbose", action="store_true")
     p.add_argument("--conversion-verbose", action="store_true")
@@ -132,6 +142,67 @@ def parse_args() -> argparse.Namespace:
         help="Disable writing chunk files to disk.",
     )
 
+    # Filtering flags (pre-conversion)
+    p.add_argument(
+        "--filter",
+        dest="filter_enabled",
+        action="store_true",
+        default=False,
+        help="Enable pre-conversion filtering of crawled files.",
+    )
+    p.add_argument(
+        "--no-filter",
+        dest="filter_enabled",
+        action="store_false",
+        help="Disable pre-conversion filtering (default).",
+    )
+    p.add_argument(
+        "--filter-script",
+        default="filterer.cli",
+        help="Filtering entrypoint (module path or script path), e.g. 'filterer.cli'.",
+    )
+    p.add_argument(
+        "--filter-min-tokens",
+        type=int,
+        default=None,
+        help="Drop text-like files with fewer than this many tokens during filtering.",
+    )
+    p.add_argument(
+        "--filter-exclude-csv",
+        default=None,
+        help="CSV listing files to exclude during filtering (paths relative to course root).",
+    )
+    p.add_argument(
+        "--filter-title-blacklist",
+        default=None,
+        help=(
+            "Comma-separated list of case-insensitive substrings; "
+            "if any appears in the JSON title/module_name or file name, "
+            "the file is removed. Overrides the filterer's default blacklist."
+        ),
+    )
+    p.add_argument(
+        "--filter-dry-run",
+        action="store_true",
+        help="Run filtering in dry-run mode (log but do not delete files).",
+    )
+    p.add_argument(
+        "--filter-log-removed",
+        action="store_true",
+        help="Print each file that is (or would be) removed during filtering.",
+    )
+    p.add_argument(
+        "--filter-log-removed-to",
+        default=None,
+        help="Write filtering removal events to this path as JSONL (one JSON object per line).",
+    )
+    p.add_argument(
+        "--no-filter-dedupe",
+        dest="filter_dedupe",
+        action="store_false",
+        default=True,
+        help="Disable duplicate removal during filtering.",
+    )
 
     return p.parse_args()
 
@@ -164,11 +235,19 @@ def build_cfg_from_cli(args: argparse.Namespace, repo_root: Path) -> dict[str, A
         include_set -= _ALWAYS_SKIP  # never allow these
         if not include_set:
             raise ValueError("After removing locked/json_output, --include is empty. Provide at least one folder.")
+    
+    steps_str = getattr(args, "steps", "all")
+    if steps_str.lower() == "all":
+        steps_value: str | list[str] = "all"
+    else:
+        parts = [p.strip() for p in steps_str.split(",") if p.strip()]
+        steps_value = parts
 
     cfg: dict[str, Any] = {
         "run": {
             "runs_root": args.runs_root,
             "name": args.run_name,
+            "steps": steps_value,
         },
         "canvas": {
             "crawler_module": args.crawler_module,
@@ -202,6 +281,24 @@ def build_cfg_from_cli(args: argparse.Namespace, repo_root: Path) -> dict[str, A
             "write_chunk_files": bool(args.write_chunk_files),
             # pass through; your chunker can read PIPELINE_CONFIG or a new env var / CLI arg
             "include_frontmatter": bool(args.include_frontmatter),
+        },
+        "filtering": {
+            "enabled": bool(args.filter_enabled),
+            "script": args.filter_script,
+            "exclude_csv": args.filter_exclude_csv,
+            "min_token_count": args.filter_min_tokens,
+            "dedupe": bool(getattr(args, "filter_dedupe", True)),
+            "dry_run": bool(args.filter_dry_run),
+            "log_removed": bool(args.filter_log_removed),
+            "log_removed_to": args.filter_log_removed_to,
+            # Pass the same include list to filtering by default
+            "include_dirnames": sorted(include_set) if include_set is not None else None,
+            # title_blacklist: only set if user supplied it; otherwise filterer uses its default
+            **(
+                {"title_blacklist": args.filter_title_blacklist}
+                if args.filter_title_blacklist is not None
+                else {}
+            ),
         },
         "upload": {"enabled": False},
         # stash tokens for your own future use if desired

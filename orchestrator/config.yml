@@ -1,16 +1,33 @@
 run:
   runs_root: "runs"              
-  name: null                     # optional; if null, orchestrator uses timestamp
+  name: "testing_run"                     # optional; if null, orchestrator uses timestamp
+  # Optional: which steps to run. If omitted or "all", all are run.
+  # Valid: crawl, filter, convert, metadata, chunk
+  steps:
+  #  - crawl
+    - filter
+  #  - convert
+  #  - metadata
 
 canvas:
-  crawler_script: "canvas_crawler/canvas_crawler.py"
-  canvas_url: "https://learn.canvas.net"
-  course_id: 3376
+  crawler_script: "canvas_crawler.cli"
+  canvas_url: "https://canvas.upenn.edu"
+  course_id: 1899011
   depth_limit: 15
   verbose: true
 
+filtering:
+  enabled: true
+  script: filterer.cli         
+  exclude_csv: ""
+  min_token_count: 50
+  dry_run: true
+  dedupe: true
+  log_removed: true
+  max_removed_in_summary: 2000
+  
 conversion:
-  script: "pre_processer/run_conversion.py"
+  script: "pre_processer.run_conversion"
   model: "gpt-4o"
   enable_llm: true
   verbose: true
@@ -24,13 +41,6 @@ bridge:
   raw_key: "raw_file_path"
   legacy_key: "file_path"
   md_key: "md_file_path"
-  md_value_mode: "relative_to_master_run"   # store paths like processor/markdown/pages/...
+  md_value_mode: "relative_to_master_run"   
   atomic_write: true
 
-# Future placeholders
-chunking:
-  enabled: true
-  write_chunk_files: true
-
-upload:
-  enabled: false
