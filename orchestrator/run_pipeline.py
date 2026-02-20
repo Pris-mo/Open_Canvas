@@ -377,9 +377,6 @@ def run_filtering_stage(cfg: dict[str, Any], repo_root: Path, ctx: RunContext) -
       summary_json: "runs/.../filter_summary.json"
     """
     filtering_cfg = cfg.get("filtering") or {}
-    if not filtering_cfg.get("enabled", False):
-        print("Filtering disabled (filtering.enabled=false). Skipping.")
-        return None
 
     python = _resolve_python(filtering_cfg, repo_root)
 
