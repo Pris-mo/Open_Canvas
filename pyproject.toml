@@ -32,4 +32,5 @@ include = [
   "chunker*",
   "canvas_crawler*",
   "pre_processer*",
+  "filterer*",
 ]
