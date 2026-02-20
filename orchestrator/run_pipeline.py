@@ -523,7 +523,7 @@ def run_pipeline(cfg: dict[str, Any], repo_root: Path, cfg_path: Path | None = N
         print("::STEP:: Skipping crawl (run.steps does not include 'crawl')", flush=True)
 
     # 2) Filtering (pre-conversion)
-    if "filter" in steps and (cfg.get("filtering") or {}).get("enabled", False):
+    if "filter" in steps:
         print("::STEP:: Filtering crawled course files", flush=True)
         filter_summary = run_filtering_stage(cfg, repo_root, ctx)
     else:
@@ -544,7 +544,7 @@ def run_pipeline(cfg: dict[str, Any], repo_root: Path, cfg_path: Path | None = N
         print("::STEP:: Skipping metadata update (run.steps does not include 'metadata')", flush=True)
 
     # 5) Chunking
-    if "chunk" in steps and (cfg.get("chunking") or {}).get("enabled", False):
+    if "chunk" in steps:
         print("::STEP:: Chunking the markdown files, preparing to upload", flush=True)
         run_chunking(cfg, repo_root, ctx, cfg_path or (repo_root / "orchestrator" / "config.yml"))
     else:
