@@ -231,6 +231,23 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         help="Drop text-like files with fewer than this many tokens.",
     )
 
+    p.add_argument(
+        "--max-token-count",
+        type=int,
+        default=20000,
+        help="Drop text-like files with MORE than this many tokens (optional).",
+    )
+
+    p.add_argument(
+        "--exclude-suffixes",
+        default=".csv,.tsv,.xlsx",
+        help=(
+            "Comma-separated list of file extensions to drop entirely "
+            "(case-insensitive, with or without leading dot). "
+            'Example: ".csv,.tsv,.xlsx" or "csv,tsv,xlsx"'
+        ),
+    )
+
     # Dedupe
     dedupe_group = p.add_mutually_exclusive_group()
     dedupe_group.add_argument(
@@ -296,6 +313,20 @@ def _csv_to_set(s: Optional[str]) -> Optional[set[str]]:
     out = {p for p in parts if p}
     return out or None
 
+def _suffix_set_from_csv(s: Optional[str]) -> set[str]:
+    """
+    Parse a comma-separated string of extensions into a normalized set,
+    e.g. 'csv, .TSV, .xlsx' -> {'.csv', '.tsv', '.xlsx'}.
+    """
+    if not s:
+        return set()
+    parts = [p.strip().lower() for p in s.split(",") if p.strip()]
+    out: set[str] = set()
+    for p in parts:
+        if not p.startswith("."):
+            p = "." + p
+        out.add(p)
+    return out
 
 def _log_event(
     *,
@@ -406,6 +437,10 @@ def run_filtering(args: argparse.Namespace) -> Dict[str, Any]:
         print(f"[filterer] Loaded {len(exclusion_set)} exclusion paths from CSV")
 
     min_tokens: Optional[int] = args.min_token_count
+    max_tokens: Optional[int] = getattr(args, "max_token_count", None)
+    exclude_suffixes: set[str] = _suffix_set_from_csv(
+        getattr(args, "exclude_suffixes", None)
+    )
     dedupe_enabled: bool = bool(args.dedupe)
     dry_run: bool = bool(args.dry_run)
 
@@ -442,6 +477,8 @@ def run_filtering(args: argparse.Namespace) -> Dict[str, Any]:
     removed_dupe = 0
     removed_small = 0
     removed_title_blacklist = 0
+    removed_large = 0 
+    removed_suffix = 0
 
     # Track removals for summary (optional)
     removed_files: list[Dict[str, Any]] = []
@@ -450,6 +487,7 @@ def run_filtering(args: argparse.Namespace) -> Dict[str, Any]:
         "dupe": [],
         "small": [],
         "title_blacklist": [],
+        "large": [],
     }
 
     def maybe_record(event: Dict[str, Any]) -> None:
@@ -481,6 +519,33 @@ def run_filtering(args: argparse.Namespace) -> Dict[str, Any]:
                     return
                 json_path = (course_root / json_rel_str).resolve()
                 json_path.unlink(missing_ok=True)
+
+
+            if exclude_suffixes and p.suffix.lower() in exclude_suffixes:
+                removed_suffix += 1
+                event: Dict[str, Any] = {
+                    "action": action,
+                    "reason": "suffix",
+                    "path": rel_str,
+                    "suffix": p.suffix.lower(),
+                }
+                if json_rel_str is not None:
+                    event["json_path"] = json_rel_str
+
+                if dry_run and json_rel_str is not None and meta is not None:
+                    _annotate_json_removal(
+                        course_root=course_root,
+                        json_rel_str=json_rel_str,
+                        meta=meta,
+                        event=event,
+                    )
+
+                _log_event(event=event, log_removed=log_removed, jsonl_fp=jsonl_fp)
+                maybe_record(event)
+                if not dry_run:
+                    p.unlink(missing_ok=True)
+                    delete_sidecar_json()
+                continue
 
             # 1) Explicit CSV exclusion
             if p in exclusion_set:
@@ -599,18 +664,49 @@ def run_filtering(args: argparse.Namespace) -> Dict[str, Any]:
                     else:
                         seen_hashes[h] = p
 
-            # 4) Low-token removal (only text-like files)
-            if min_tokens is not None and p.suffix.lower() in _TEXT_SUFFIXES:
+            # 4) Token-count-based removal (only text-like files)
+            if (min_tokens is not None or max_tokens is not None) and p.suffix.lower() in _TEXT_SUFFIXES:
                 try:
                     text = p.read_text(encoding="utf-8", errors="ignore")
                 except OSError:
                     text = ""
+
                 tok_count = _estimate_token_count(text)
-                if tok_count < min_tokens:
+
+                # First: drop if too small
+                if min_tokens is not None and tok_count < min_tokens:
                     removed_small += 1
                     event = {
                         "action": action,
                         "reason": "small",
+                        "path": rel_str,
+                        "token_count": tok_count,
+                        "suffix": p.suffix.lower(),
+                    }
+                    if json_rel_str is not None:
+                        event["json_path"] = json_rel_str
+
+                    if dry_run and json_rel_str is not None and meta is not None:
+                        _annotate_json_removal(
+                            course_root=course_root,
+                            json_rel_str=json_rel_str,
+                            meta=meta,
+                            event=event,
+                        )
+
+                    _log_event(event=event, log_removed=log_removed, jsonl_fp=jsonl_fp)
+                    maybe_record(event)
+                    if not dry_run:
+                        p.unlink(missing_ok=True)
+                        delete_sidecar_json()
+                    continue
+
+                # Second: drop if too large
+                if max_tokens is not None and tok_count > max_tokens:
+                    removed_large += 1
+                    event = {
+                        "action": action,
+                        "reason": "large",
                         "path": rel_str,
                         "token_count": tok_count,
                         "suffix": p.suffix.lower(),
@@ -643,8 +739,10 @@ def run_filtering(args: argparse.Namespace) -> Dict[str, Any]:
         "removed_dupe": removed_dupe,
         "removed_small": removed_small,
         "removed_title_blacklist": removed_title_blacklist,
+        "removed_suffix": removed_suffix,
         "dry_run": dry_run,
         "min_token_count": min_tokens,
+        "max_token_count": max_tokens,
         "dedupe": dedupe_enabled,
         "skip_dirnames": sorted(skip_dirnames),
         "include_dirnames": sorted(include_dirnames) if include_dirnames else None,
@@ -667,7 +765,8 @@ def run_filtering(args: argparse.Namespace) -> Dict[str, Any]:
     print(
         f"[filterer] Summary: considered={total_considered}, "
         f"csv={removed_csv}, title_blacklist={removed_title_blacklist}, "
-        f"dupes={removed_dupe}, small={removed_small}, dry_run={dry_run}"
+        f"dupes={removed_dupe}, small={removed_small}, large={removed_large}, "
+        f"suffix={removed_suffix}, dry_run={dry_run}"
     )
 
     return summary
